@@ -159,9 +159,7 @@ export const parseMarkdownWithHighlight = (
  *
  * @param parserOptions - Options for the markdown-it instance (plugins, math, containers, etc.)
  */
-export const createHighlightedParser = (
-  parserOptions?: GetMarkdownOptions,
-) => {
+export const createHighlightedParser = (parserOptions?: GetMarkdownOptions) => {
   const instance = getMarkdown(undefined, parserOptions)
 
   return {

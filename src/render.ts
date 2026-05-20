@@ -138,14 +138,16 @@ const renderCodeBlock: NodeRenderer = (node, ctx) => {
   const loadingIndicator = n.loading ? ctx.theme.muted('...') : ''
 
   // Add left border to each line
-  const leftBar = ctx.theme.border('\u2502 ')
-  const lines = code
-    .split('\n')
-    .map((line) => leftBar + line)
-    .join('\n')
+  // const leftBar = ctx.theme.border('\u2502 ')
+  // const lines = code
+  //   .split('\n')
+  //   .map((line) => leftBar + line)
+  //   .join('\n')
+  const lines = code;
 
   // Language label on first line if present
-  const langLabel = n.language ? ctx.theme.muted(n.language) + '\n' : ''
+  // const langLabel = n.language ? ctx.theme.muted(n.language) + '\n' : ''
+  const langLabel = '';
 
   return '\n' + langLabel + lines + loadingIndicator + '\n'
 }

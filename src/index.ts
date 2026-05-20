@@ -24,7 +24,4 @@ export type {
   HighlightedCodeBlockNode,
   HighlightedParsedNode,
 } from './parse-with-highlight'
-export type {
-  GetMarkdownOptions,
-  ParseOptions,
-} from 'stream-markdown-parser'
+export type { GetMarkdownOptions, ParseOptions } from 'stream-markdown-parser'

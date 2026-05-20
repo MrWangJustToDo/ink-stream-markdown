@@ -5,10 +5,7 @@ import { getMarkdown } from 'stream-markdown-parser'
 import { parseMarkdownWithHighlight } from './parse-with-highlight'
 import { renderNodesToString } from './render'
 import type { ThemeOptions } from './theme'
-import type {
-  GetMarkdownOptions,
-  ParseOptions,
-} from 'stream-markdown-parser'
+import type { GetMarkdownOptions, ParseOptions } from 'stream-markdown-parser'
 
 export interface StreamMarkdownProps {
   children: string
