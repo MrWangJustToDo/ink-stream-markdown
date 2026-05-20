@@ -143,11 +143,11 @@ const renderCodeBlock: NodeRenderer = (node, ctx) => {
   //   .split('\n')
   //   .map((line) => leftBar + line)
   //   .join('\n')
-  const lines = code;
+  const lines = code
 
   // Language label on first line if present
   // const langLabel = n.language ? ctx.theme.muted(n.language) + '\n' : ''
-  const langLabel = '';
+  const langLabel = ''
 
   return '\n' + langLabel + lines + loadingIndicator + '\n'
 }

@@ -81,7 +81,6 @@ The default theme uses a GitHub dark mode color palette. Override any style with
 ```tsx
 import chalk from 'chalk'
 import { StreamMarkdown } from 'ink-stream-markdown'
-
 ;<StreamMarkdown
   theme={{
     heading: chalk.red.bold,
