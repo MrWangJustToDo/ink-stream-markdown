@@ -2,6 +2,10 @@
 
 A streaming markdown renderer for [Ink](https://github.com/vadimdemedes/ink). Parses markdown with [stream-markdown-parser](https://github.com/nicepkg/stream-markdown-parser), highlights code blocks with [Shiki](https://shiki.style), and renders styled output to the terminal.
 
+| Markdown rendering | Syntax highlighting |
+| --- | --- |
+| ![Markdown rendering](./markdown.png) | ![Syntax highlighting](./syntax.png) |
+
 ## Install
 
 ```bash

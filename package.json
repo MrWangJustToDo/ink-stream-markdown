@@ -14,7 +14,9 @@
   "sideEffects": false,
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "markdown.png",
+    "syntax.png"
   ],
   "engines": {
     "node": ">=18"
