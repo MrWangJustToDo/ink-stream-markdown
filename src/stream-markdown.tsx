@@ -2,9 +2,9 @@ import { type FC, useMemo } from 'react'
 import { Text } from 'ink'
 import { getMarkdown } from 'stream-markdown-parser'
 
-import { parseMarkdownWithHighlight } from './parse-with-highlight'
+import { parseMarkdown } from './parse'
 import { renderNodesToString } from './render'
-import type { ThemeOptions } from './theme'
+import type { ThemeOptions, HighlightOptions } from './theme'
 import type { GetMarkdownOptions, ParseOptions } from 'stream-markdown-parser'
 
 export interface StreamMarkdownProps {
@@ -21,6 +21,11 @@ export interface StreamMarkdownProps {
    * Controls token transforms, custom HTML tags, link validation, etc.
    */
   parseOptions?: ParseOptions
+  /**
+   * Custom code highlighting pipeline.
+   * Provide a `highlightCode(code, lang)` function that returns a styled string.
+   */
+  highlight?: HighlightOptions
 }
 
 /**
@@ -40,6 +45,7 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
   theme,
   parserOptions,
   parseOptions,
+  highlight,
 }) => {
   const instance = useMemo(
     () => getMarkdown(undefined, parserOptions),
@@ -47,13 +53,21 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
   )
 
   const nodes = useMemo(
-    () => parseMarkdownWithHighlight(children || '', instance, parseOptions),
+    () => parseMarkdown(children || '', instance, parseOptions),
     [children, instance, parseOptions],
   )
 
+  const mergedTheme = useMemo(() => {
+    if (!highlight?.highlightCode) return theme
+    return {
+      ...theme,
+      highlight: { ...theme?.highlight, ...highlight },
+    } as ThemeOptions
+  }, [theme, highlight])
+
   const rendered = useMemo(
-    () => renderNodesToString(nodes, theme),
-    [nodes, theme],
+    () => renderNodesToString(nodes, mergedTheme),
+    [nodes, mergedTheme],
   )
 
   return <Text>{rendered}</Text>

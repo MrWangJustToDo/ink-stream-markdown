@@ -1,9 +1,12 @@
 # ink-stream-markdown
 
+[![npm version](https://img.shields.io/npm/v/ink-stream-markdown)](https://www.npmjs.com/package/ink-stream-markdown)
+[![npm downloads](https://img.shields.io/npm/dm/ink-stream-markdown)](https://www.npmjs.com/package/ink-stream-markdown)
+
 A streaming markdown renderer for [Ink](https://github.com/vadimdemedes/ink). Parses markdown with [stream-markdown-parser](https://github.com/nicepkg/stream-markdown-parser), highlights code blocks with [Shiki](https://shiki.style), and renders styled output to the terminal.
 
-| Markdown rendering | Syntax highlighting |
-| --- | --- |
+| Markdown rendering                    | Syntax highlighting                  |
+| ------------------------------------- | ------------------------------------ |
 | ![Markdown rendering](./markdown.png) | ![Syntax highlighting](./syntax.png) |
 
 ## Install
@@ -71,12 +74,13 @@ render(<StreamingApp />)
 
 ## Props
 
-| Prop            | Type                 | Description                                                    |
-| --------------- | -------------------- | -------------------------------------------------------------- |
-| `children`      | `string`             | Markdown content to render                                     |
-| `theme`         | `ThemeOptions`       | Style overrides (colors, renderers, width, table options)      |
-| `parserOptions` | `GetMarkdownOptions` | markdown-it instance options (plugins, math, containers, etc.) |
-| `parseOptions`  | `ParseOptions`       | Per-parse options (token transforms, link validation, etc.)    |
+| Prop            | Type                 | Description                                                             |
+| --------------- | -------------------- | ----------------------------------------------------------------------- |
+| `children`      | `string`             | Markdown content to render                                              |
+| `theme`         | `ThemeOptions`       | Style overrides (colors, renderers, width, table options)               |
+| `highlight`     | `HighlightOptions`   | Custom code highlighting pipeline (tokenization and/or token rendering) |
+| `parserOptions` | `GetMarkdownOptions` | markdown-it instance options (plugins, math, containers, etc.)          |
+| `parseOptions`  | `ParseOptions`       | Per-parse options (token transforms, link validation, etc.)             |
 
 ## Theming
 
@@ -99,13 +103,15 @@ import { StreamMarkdown } from 'ink-stream-markdown'
 
 ### Available Theme Keys
 
-**Text styles** — `text`, `heading`, `firstHeading`, `link`, `href`, `strong`, `em`, `del`, `code`, `codeBlock`, `blockquote`, `listItem`, `hr`, `html`, `table`, `highlight`
+**Text styles** — `text`, `heading`, `firstHeading`, `link`, `href`, `strong`, `em`, `del`, `code`, `codeBlock`, `blockquote`, `listItem`, `hr`, `html`, `table`, `mark`
 
 **Semantic colors** — `muted`, `border`, `success`, `warning`, `error`, `info`, `purple`
 
 **Layout** — `width` (terminal width override, defaults to `process.stdout.columns`), `tableOptions` (passthrough to [cli-table3](https://github.com/cli-table/cli-table3))
 
 **Renderers** — `renderers` (custom render functions per node type, see below)
+
+**Highlight** — `highlight` (custom code highlighting pipeline, see below)
 
 ## Custom Renderers
 
@@ -144,6 +150,41 @@ Every renderer receives three arguments:
 
 The `defaultRenderers` map is exported so you can compose on top of built-in behavior.
 
+## Custom Highlight Pipeline
+
+The default highlighting uses [Shiki](https://shiki.style) for tokenization and chalk for coloring. You can replace the entire pipeline with any highlighter by providing a single `highlightCode` callback that takes source code and a language and returns a styled string:
+
+```tsx
+import { StreamMarkdown, defaultHighlightCode } from 'ink-stream-markdown'
+
+// Use highlight.js instead of Shiki
+<StreamMarkdown
+  highlight={{
+    highlightCode: (code, lang) => hljs.highlight(code, { language: lang }).value,
+  }}
+>
+  {md}
+</StreamMarkdown>
+
+// Wrap the default Shiki pipeline with custom logic
+<StreamMarkdown
+  highlight={{
+    highlightCode: (code, lang) => {
+      const highlighted = defaultHighlightCode(code, lang)
+      return '>>>\n' + highlighted + '\n<<<'
+    },
+  }}
+>
+  {md}
+</StreamMarkdown>
+```
+
+| Option          | Type                                     | Description                                                         |
+| --------------- | ---------------------------------------- | ------------------------------------------------------------------- |
+| `highlightCode` | `(code: string, lang: string) => string` | Replace the code-to-styled-string pipeline (default: Shiki + chalk) |
+
+`defaultHighlightCode` is exported so you can compose custom logic on top of the built-in Shiki pipeline.
+
 ## Parser Options
 
 Configure the underlying markdown-it parser:
@@ -170,8 +211,8 @@ Use the parser and renderer independently outside of React/Ink:
 
 ```typescript
 import {
-  parseMarkdownWithHighlight,
-  createHighlightedParser,
+  parseMarkdown,
+  createParser,
   renderNodesToString,
   renderNodeToString,
   initHighlighter,
@@ -181,7 +222,7 @@ import {
 await initHighlighter()
 
 // One-shot parse + render
-const nodes = parseMarkdownWithHighlight('# Hello **world**')
+const nodes = parseMarkdown('# Hello **world**')
 const output = renderNodesToString(nodes)
 console.log(output)
 
@@ -189,7 +230,7 @@ console.log(output)
 const output2 = renderNodesToString(nodes, { code: chalk.cyan })
 
 // Reusable parser instance
-const parser = createHighlightedParser({ enableMath: true })
+const parser = createParser({ enableMath: true })
 const nodes2 = parser.parse('$E = mc^2$')
 ```
 

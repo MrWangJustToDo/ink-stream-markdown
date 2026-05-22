@@ -3,14 +3,12 @@ import Table from 'cli-table3'
 import terminalLink from 'terminal-link'
 
 import { defaultTheme, resolveTheme } from './theme'
+import { highlightCode } from './utils/highlighter'
 import type { RenderContext, NodeRenderer, ThemeOptions } from './theme'
-import type {
-  HighlightedCodeBlockNode,
-  HighlightedParsedNode,
-} from './parse-with-highlight'
 import type { ThemedToken } from 'shiki'
 import type {
   ParsedNode,
+  CodeBlockNode,
   TextNode,
   HeadingNode,
   ParagraphNode,
@@ -56,10 +54,7 @@ const createContext = (theme: typeof defaultTheme): RenderContext => ({
 })
 
 /* Render a single node — checks for custom renderer first, then falls back to defaults */
-const renderNode = (
-  node: ParsedNode | HighlightedParsedNode,
-  ctx: RenderContext,
-): string => {
+const renderNode = (node: ParsedNode, ctx: RenderContext): string => {
   const custom = ctx.theme.renderers[node.type]
   if (custom) {
     return custom(node, ctx, renderChildren)
@@ -74,20 +69,20 @@ const renderNode = (
 }
 
 /* Render children nodes */
-const renderChildren = (
-  children: (ParsedNode | HighlightedParsedNode)[],
-  ctx: RenderContext,
-): string => {
+const renderChildren = (children: ParsedNode[], ctx: RenderContext): string => {
   return children.map((node) => renderNode(node, ctx)).join('')
 }
 
 /* ─── Individual render functions ───────────────────────────────────── */
 
 /**
- * Render shiki tokens to a styled string.
- * Each token has a color from the theme that we apply using chalk.
+ * Default token-to-string renderer: applies chalk.hex per token color.
+ * Used internally by the default highlight pipeline.
  */
-const renderTokens = (tokens: ThemedToken[][], ctx: RenderContext): string => {
+const defaultRenderTokens = (
+  tokens: ThemedToken[][],
+  ctx: RenderContext,
+): string => {
   return tokens
     .map((line) => {
       return line
@@ -100,6 +95,21 @@ const renderTokens = (tokens: ThemedToken[][], ctx: RenderContext): string => {
         .join('')
     })
     .join('\n')
+}
+
+/**
+ * Default highlight pipeline: Shiki tokenize + chalk render.
+ * Exported so users can compose custom logic on top:
+ *
+ * ```ts
+ * highlight={{ highlightCode: (code, lang) => '>>>\n' + defaultHighlightCode(code, lang) + '\n<<<' }}
+ * ```
+ */
+export const defaultHighlightCode = (code: string, lang: string, _ctx?: RenderContext): string => {
+  const tokens = highlightCode(code, lang)
+  const ctx = _ctx || createContext(defaultTheme)
+  if (tokens.length === 0) return ctx.theme.codeBlock(code)
+  return defaultRenderTokens(tokens, ctx)
 }
 
 const renderText: NodeRenderer = (node, ctx) => {
@@ -119,13 +129,15 @@ const renderParagraph: NodeRenderer = (node, ctx, rc) => {
 }
 
 const renderCodeBlock: NodeRenderer = (node, ctx) => {
-  const n = node as HighlightedCodeBlockNode
-  // Use pre-highlighted tokens if available
+  const n = node as CodeBlockNode
+  const customHighlight = ctx.theme.highlight?.highlightCode
+
   let code: string
-  if (n.tokens && n.tokens.length > 0) {
-    code = renderTokens(n.tokens, ctx)
+  if (customHighlight && n.language) {
+    code = customHighlight(n.code, n.language)
+  } else if (n.language && n.language.trim()) {
+    code = defaultHighlightCode(n.code, n.language, ctx);
   } else {
-    // Fallback to plain code (no syntax highlighting)
     code = ctx.theme.codeBlock(n.code)
   }
 
@@ -276,7 +288,7 @@ const renderCheckbox: NodeRenderer = (node, ctx) => {
 }
 
 const renderHighlight: NodeRenderer = (node, ctx, rc) => {
-  return ctx.theme.highlight(rc((node as HighlightNode).children, ctx))
+  return ctx.theme.mark(rc((node as HighlightNode).children, ctx))
 }
 
 const renderInsert: NodeRenderer = (node, ctx, rc) => {
@@ -474,7 +486,7 @@ export const defaultRenderers: Record<string, NodeRenderer | undefined> = {
 
 /* Render a single node to string */
 export const renderNodeToString = (
-  node: ParsedNode | HighlightedParsedNode,
+  node: ParsedNode,
   theme?: ThemeOptions,
 ): string => {
   const resolved = theme ? resolveTheme(theme) : defaultTheme
@@ -484,7 +496,7 @@ export const renderNodeToString = (
 
 /* Render all nodes to string */
 export const renderNodesToString = (
-  nodes: (ParsedNode | HighlightedParsedNode)[],
+  nodes: ParsedNode[],
   theme?: ThemeOptions,
 ): string => {
   const resolved = theme ? resolveTheme(theme) : defaultTheme

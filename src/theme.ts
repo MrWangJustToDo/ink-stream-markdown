@@ -74,6 +74,24 @@ export interface Renderers {
 }
 
 /**
+ * Options to customize the code highlighting pipeline.
+ *
+ * Provide a single `highlightCode` callback that takes source code and a
+ * language identifier and returns a fully styled string. The default
+ * implementation uses Shiki for tokenization and chalk for coloring.
+ */
+export interface HighlightOptions {
+  /**
+   * Replace the entire code-to-styled-string pipeline.
+   * Default: built-in Shiki tokenize + chalk render.
+   *
+   * Return a terminal-styled string (e.g. using chalk, ansi-colors, etc.).
+   * If the language is unsupported, return the plain code string.
+   */
+  highlightCode?: (code: string, lang: string) => string
+}
+
+/**
  * User-facing theme options. Every key is optional — unset keys fall back
  * to the built-in defaults.
  *
@@ -128,8 +146,8 @@ export interface ThemeOptions {
   /** Purple accents (math, important admonitions) */
   purple?: ChalkStyle
 
-  /** Highlight (==marked== text) */
-  highlight?: ChalkStyle
+  /** Marked text (==marked== / `<mark>`) */
+  mark?: ChalkStyle
 
   /** Terminal width override (defaults to `process.stdout.columns` or 80) */
   width?: number
@@ -138,6 +156,9 @@ export interface ThemeOptions {
 
   /** Custom node renderers — override rendering for specific node types */
   renderers?: Renderers
+
+  /** Custom code highlighting pipeline — override tokenization and/or token rendering */
+  highlight?: HighlightOptions
 }
 
 /**
@@ -180,11 +201,12 @@ export const defaultTheme: ResolvedTheme = {
   info: chalk.hex('#58a6ff'),
   purple: chalk.hex('#a371f7'),
 
-  highlight: chalk.bgHex('#bb800926').hex('#e6edf3'),
+  mark: chalk.bgHex('#bb800926').hex('#e6edf3'),
 
   width: 0,
   tableOptions: {},
   renderers: {},
+  highlight: {},
 }
 
 /**
