@@ -216,7 +216,13 @@ export const defaultTheme: ResolvedTheme = {
  * const theme = resolveTheme({ code: chalk.cyan, heading: chalk.red.bold })
  * ```
  */
+let lastInput: ThemeOptions | undefined
+let lastResolved: ResolvedTheme | undefined
+
 export const resolveTheme = (options?: ThemeOptions): ResolvedTheme => {
   if (!options) return defaultTheme
-  return { ...defaultTheme, ...options }
+  if (options === lastInput && lastResolved) return lastResolved
+  lastResolved = { ...defaultTheme, ...options }
+  lastInput = options
+  return lastResolved
 }

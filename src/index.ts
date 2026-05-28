@@ -7,7 +7,7 @@ export {
   createParser,
   createHighlightedParser,
 } from './parse'
-export { initHighlighter } from './utils/highlighter'
+export { initHighlighter, clearHighlightCache } from './utils/highlighter'
 export {
   renderNodesToString,
   renderNodeToString,

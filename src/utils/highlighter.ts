@@ -26,14 +26,22 @@ const ensureHighlighter = async () => {
 
 export const initHighlighter = ensureHighlighter
 
+const tokenCache = new Map<string, ThemedToken[][]>()
+const MAX_CACHE = 128
+
 /**
  * Synchronously highlight code and return tokens.
- * Used for source-side highlighting when content is complete.
+ * Results are LRU-cached by (lang, code) to avoid re-tokenizing
+ * identical code blocks across streaming re-renders.
  */
 export const highlightCode = (code: string, lang?: string): ThemedToken[][] => {
   if (!highlighter || !lang || !lang.trim()) {
     return []
   }
+
+  const key = `${lang}\0${code}`
+  const cached = tokenCache.get(key)
+  if (cached) return cached
 
   try {
     const loadedLangs = highlighter.getLoadedLanguages()
@@ -45,10 +53,20 @@ export const highlightCode = (code: string, lang?: string): ThemedToken[][] => {
       lang: lang as Parameters<typeof highlighter.codeToTokens>[1]['lang'],
       theme: 'github-dark',
     })
-    return tokens.tokens
+    const result = tokens.tokens
+    tokenCache.set(key, result)
+    if (tokenCache.size > MAX_CACHE) {
+      tokenCache.delete(tokenCache.keys().next().value!)
+    }
+    return result
   } catch {
     return []
   }
+}
+
+/** Clear the Shiki token cache (e.g. to free memory after large renders). */
+export const clearHighlightCache = (): void => {
+  tokenCache.clear()
 }
 
 /**

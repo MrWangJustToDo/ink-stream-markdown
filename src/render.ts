@@ -504,14 +504,6 @@ export const renderNodesToString = (
 
   return nodes
     .map((node) => renderNode(node, ctx))
-    .map((i) => {
-      while (i.startsWith('\n')) {
-        i = i.slice(1)
-      }
-      while (i.endsWith('\n')) {
-        i = i.slice(0, i.length - 1)
-      }
-      return i
-    })
+    .map((i) => i.replace(/^\n+|\n+$/g, ''))
     .join('\n\n')
 }
