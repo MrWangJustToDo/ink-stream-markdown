@@ -3,5 +3,5 @@ import { Example } from './example'
 import { initHighlighter } from '../src'
 
 initHighlighter().then(() => {
-  render(<Example />)
+  render(<Example />, { exitOnCtrlC: false })
 })

@@ -1,12 +1,7 @@
 export { StreamMarkdown } from './stream-markdown'
 export type { StreamMarkdownProps } from './stream-markdown'
 
-export {
-  parseMarkdown,
-  parseMarkdownWithHighlight,
-  createParser,
-  createHighlightedParser,
-} from './parse'
+export { parseMarkdown, createParser } from './parse'
 export { initHighlighter, clearHighlightCache } from './utils/highlighter'
 export {
   renderNodesToString,

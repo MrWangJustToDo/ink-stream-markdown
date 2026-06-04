@@ -124,6 +124,33 @@ new DiffFile(
 |--------|-------------|
 | \`createInstance(data, bundle)\` | Reconstruct DiffFile from bundle |
 
+\`\`\`mermaid
+graph TD
+  A[Source] -->|solid| B[Target 1]
+  A -.->|dotted| C[Target 2]
+  A ==>|thick| D[Target 3]
+\`\`\`
+
+\`\`\`mermaid
+graph TD
+  subgraph Cloud
+    subgraph us-east [US East Region]
+      A[Web Server] --> B[App Server]
+    end
+    subgraph us-west [US West Region]
+      C[Web Server] --> D[App Server]
+    end
+  end
+  E[Load Balancer] --> A
+  E --> C
+\`\`\`
+
+$$x^2 + y^2 = z^2$$
+
+\\[
+e^x = 1 + x + \\frac{x^2}{2!} + \\frac{x^3}{3!} + \\cdots + \\frac{x^n}{n!} + \\cdots, \\quad x \\in \\mathbb{R}
+\\]
+
 ## Use Cases
 
 - **Client-side**: Direct rendering with UI frameworks

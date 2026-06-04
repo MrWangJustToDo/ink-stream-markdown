@@ -72,9 +72,6 @@ export const parseMarkdown = (
   return parseMarkdownToStructure(preprocessed, instance, parseOptions)
 }
 
-/** @deprecated Use `parseMarkdown` instead. */
-export const parseMarkdownWithHighlight = parseMarkdown
-
 /**
  * Create a memoized parser instance for use in React components.
  *
@@ -89,6 +86,3 @@ export const createParser = (parserOptions?: GetMarkdownOptions) => {
       parseMarkdown(markdown, instance, parseOptions),
   }
 }
-
-/** @deprecated Use `createParser` instead. */
-export const createHighlightedParser = createParser

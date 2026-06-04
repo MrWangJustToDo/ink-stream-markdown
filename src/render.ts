@@ -1,6 +1,8 @@
 import chalk from 'chalk'
 import Table from 'cli-table3'
+import { renderMermaidASCII } from 'beautiful-mermaid'
 import terminalLink from 'terminal-link'
+import unicodeit from 'unicodeit'
 
 import { defaultTheme, resolveTheme } from './theme'
 import { highlightCode } from './utils/highlighter'
@@ -47,6 +49,10 @@ import type {
   CustomComponentNode,
   UnknownNode,
 } from 'stream-markdown-parser'
+
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1B\[[0-9;]*m/g
+const stripAnsi = (s: string) => s.replace(ANSI_RE, '')
 
 const createContext = (theme: typeof defaultTheme): RenderContext => ({
   listDepth: 0,
@@ -105,9 +111,24 @@ const defaultRenderTokens = (
  * highlight={{ highlightCode: (code, lang) => '>>>\n' + defaultHighlightCode(code, lang) + '\n<<<' }}
  * ```
  */
-export const defaultHighlightCode = (code: string, lang: string, _ctx?: RenderContext): string => {
-  const tokens = highlightCode(code, lang)
+export const defaultHighlightCode = (
+  code: string,
+  lang: string,
+  _ctx?: RenderContext,
+): string => {
   const ctx = _ctx || createContext(defaultTheme)
+  if (lang === 'mermaid') {
+    try {
+      const ascii = renderMermaidASCII(code)
+      const maxWidth = ctx.theme.width || process.stdout.columns || 80
+      const tooWide = ascii.split('\n').some((line) => stripAnsi(line).length > maxWidth)
+      if (!tooWide) return ascii
+    } catch {
+      // unsupported diagram type — fall through to code block
+    }
+    return ctx.theme.codeBlock(code)
+  }
+  const tokens = highlightCode(code, lang)
   if (tokens.length === 0) return ctx.theme.codeBlock(code)
   return defaultRenderTokens(tokens, ctx)
 }
@@ -136,7 +157,7 @@ const renderCodeBlock: NodeRenderer = (node, ctx) => {
   if (customHighlight && n.language) {
     code = customHighlight(n.code, n.language)
   } else if (n.language && n.language.trim()) {
-    code = defaultHighlightCode(n.code, n.language, ctx);
+    code = defaultHighlightCode(n.code, n.language, ctx)
   } else {
     code = ctx.theme.codeBlock(n.code)
   }
@@ -338,11 +359,17 @@ const renderAdmonition: NodeRenderer = (node, ctx, rc) => {
 }
 
 const renderMathInline: NodeRenderer = (node, ctx) => {
-  return ctx.theme.purple(`$${(node as MathInlineNode).content}$`)
+  const raw = (node as MathInlineNode).content
+  return ctx.theme.purple(unicodeit.replace(raw))
 }
 
 const renderMathBlock: NodeRenderer = (node, ctx) => {
-  return ctx.theme.purple((node as MathBlockNode).content)
+  const raw = (node as MathBlockNode).content
+  const converted = raw
+    .split('\n')
+    .map((line) => unicodeit.replace(line))
+    .join('\n')
+  return ctx.theme.purple(converted)
 }
 
 const renderHtmlBlock: NodeRenderer = (node, ctx) => {
