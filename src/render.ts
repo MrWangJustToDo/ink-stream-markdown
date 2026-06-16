@@ -50,9 +50,11 @@ import type {
   UnknownNode,
 } from 'stream-markdown-parser'
 
-// eslint-disable-next-line no-control-regex
+/* eslint-disable no-control-regex */
 const ANSI_RE = /\x1B\[[0-9;]*m/g
 const stripAnsi = (s: string) => s.replace(ANSI_RE, '')
+const stripUnderline = (s: string) => s.replace(/\x1B\[4m/g, '').replace(/\x1B\[24m/g, '')
+/* eslint-enable no-control-regex */
 
 const createContext = (theme: typeof defaultTheme): RenderContext => ({
   listDepth: 0,
@@ -252,7 +254,7 @@ const renderTable: NodeRenderer = (node, ctx, rc) => {
 
   const table = new Table({
     head: n.header.cells.map((cell) =>
-      ctx.theme.heading(rc(cell.children, ctx)).toString(),
+      stripUnderline(ctx.theme.heading(rc(cell.children, ctx)).toString()),
     ),
     colWidths,
     wordWrap: true,
@@ -265,7 +267,7 @@ const renderTable: NodeRenderer = (node, ctx, rc) => {
   })
 
   n.rows.forEach((row) => {
-    table.push(row.cells.map((cell) => rc(cell.children, ctx)))
+    table.push(row.cells.map((cell) => stripUnderline(rc(cell.children, ctx))))
   })
 
   return ctx.theme.table(table.toString())

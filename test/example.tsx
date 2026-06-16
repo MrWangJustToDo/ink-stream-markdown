@@ -1,4 +1,4 @@
-import { md } from './data'
+import { md2 as md } from './data'
 import { StreamMarkdown } from '../src'
 
 export const Example = () => {
