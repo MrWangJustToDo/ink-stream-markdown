@@ -1,3 +1,14 @@
+/**
+ * Browser entry point for ink-stream-markdown.
+ *
+ * Uses browser-compatible shims:
+ * - shiki/bundle/web instead of shiki/bundle-full.mjs
+ * - OSC 8 hyperlinks instead of terminal-link (works with xterm.js)
+ * - No process.stdout.columns dependency
+ *
+ * Usage with ink-web:
+ *   import { StreamMarkdown } from 'ink-stream-markdown/browser'
+ */
 export { StreamMarkdown } from './stream-markdown'
 export type { StreamMarkdownProps } from './stream-markdown'
 

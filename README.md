@@ -234,6 +234,77 @@ const parser = createParser({ enableMath: true })
 const nodes2 = parser.parse('$E = mc^2$')
 ```
 
+## Browser Usage (ink-web)
+
+This package provides a browser-compatible entry point for use with [ink-web](https://github.com/cjroth/ink-web), which renders Ink components into an xterm.js terminal in the browser.
+
+```bash
+npm install ink-stream-markdown ink-web react
+```
+
+Import from `ink-stream-markdown/browser` instead of `ink-stream-markdown`:
+
+```tsx
+import { StreamMarkdown, initHighlighter } from 'ink-stream-markdown/browser'
+```
+
+The browser entry swaps terminal-specific dependencies with browser-compatible shims:
+
+- **Shiki** uses `shiki/bundle/web` (loads grammars via fetch instead of fs)
+- **Links** use OSC 8 escape sequences (supported by xterm.js) instead of `terminal-link`
+- **Terminal width** defaults to `80` (override via `theme.width`)
+
+### Vite Setup
+
+Use `ink-web`'s Vite plugin and alias `ink` to `ink-web`:
+
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { inkWebPlugin } from 'ink-web/vite'
+
+export default defineConfig({
+  plugins: [react(), inkWebPlugin()],
+  resolve: {
+    alias: { ink: 'ink-web' },
+  },
+})
+```
+
+### Next.js / Webpack Setup
+
+`cli-table3` (used for table rendering) has an optional dependency on `@colors/colors`, which tries to import `os`. This is wrapped in a try-catch and works fine at runtime, but webpack still attempts to resolve it at build time. Add a fallback to suppress the error:
+
+```javascript
+/** @type {import('next').NextConfig} */
+const config = {
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      ink: 'ink-web',
+    }
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      os: false,
+    }
+    return config
+  },
+}
+
+export default config
+```
+
+For a standalone webpack config, the same applies:
+
+```javascript
+module.exports = {
+  resolve: {
+    alias: { ink: 'ink-web' },
+    fallback: { os: false },
+  },
+}
+```
+
 ## Supported Markdown Features
 
 - Headings (h1–h6)

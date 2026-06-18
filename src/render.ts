@@ -1,11 +1,10 @@
 import chalk from 'chalk'
 import Table from 'cli-table3'
 import { renderMermaidASCII } from 'beautiful-mermaid'
-import terminalLink from 'terminal-link'
 import unicodeit from 'unicodeit'
 
+import { terminalLink, highlightCode, getTerminalWidth } from './platform'
 import { defaultTheme, resolveTheme } from './theme'
-import { highlightCode } from './utils/highlighter'
 import type { RenderContext, NodeRenderer, ThemeOptions } from './theme'
 import type { ThemedToken } from 'shiki'
 import type {
@@ -54,6 +53,8 @@ import type {
 const ANSI_RE = /\x1B\[[0-9;]*m/g
 const stripAnsi = (s: string) => s.replace(ANSI_RE, '')
 const stripUnderline = (s: string) => s.replace(/\x1B\[4m/g, '').replace(/\x1B\[24m/g, '')
+const OSC8_RE = /\x1B\]8;[^;]*;[^\x07]*\x07/g
+const sanitizeForTable = (s: string) => stripUnderline(s).replace(OSC8_RE, '')
 /* eslint-enable no-control-regex */
 
 const createContext = (theme: typeof defaultTheme): RenderContext => ({
@@ -122,7 +123,7 @@ export const defaultHighlightCode = (
   if (lang === 'mermaid') {
     try {
       const ascii = renderMermaidASCII(code)
-      const maxWidth = ctx.theme.width || process.stdout.columns || 80
+      const maxWidth = ctx.theme.width || getTerminalWidth()
       const tooWide = ascii.split('\n').some((line) => stripAnsi(line).length > maxWidth)
       if (!tooWide) return ascii
     } catch {
@@ -246,7 +247,7 @@ const renderImage: NodeRenderer = (node, ctx) => {
 const renderTable: NodeRenderer = (node, ctx, rc) => {
   const n = node as TableNode
   const numCols = n.header.cells.length
-  const termWidth = ctx.theme.width || process.stdout.columns || 80
+  const termWidth = ctx.theme.width || getTerminalWidth()
   const availableWidth = termWidth - (numCols + 1) * 3 - 1
   const colWidth = Math.max(10, Math.floor(availableWidth / numCols))
 
@@ -254,7 +255,7 @@ const renderTable: NodeRenderer = (node, ctx, rc) => {
 
   const table = new Table({
     head: n.header.cells.map((cell) =>
-      stripUnderline(ctx.theme.heading(rc(cell.children, ctx)).toString()),
+      sanitizeForTable(ctx.theme.heading(rc(cell.children, ctx)).toString()),
     ),
     colWidths,
     wordWrap: true,
@@ -267,7 +268,7 @@ const renderTable: NodeRenderer = (node, ctx, rc) => {
   })
 
   n.rows.forEach((row) => {
-    table.push(row.cells.map((cell) => stripUnderline(rc(cell.children, ctx))))
+    table.push(row.cells.map((cell) => sanitizeForTable(rc(cell.children, ctx))))
   })
 
   return ctx.theme.table(table.toString())
@@ -284,7 +285,7 @@ const renderTableCell: NodeRenderer = (node, ctx, rc) => {
 }
 
 const renderThematicBreak: NodeRenderer = (_node, ctx) => {
-  const width = ctx.theme.width || process.stdout.columns || 80
+  const width = ctx.theme.width || getTerminalWidth()
   return ctx.theme.hr('\u2500'.repeat(Math.min(width, 40)))
 }
 
