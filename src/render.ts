@@ -124,7 +124,7 @@ export const defaultHighlightCode = (
       return mermaidOpt(code)
     }
     try {
-      const ascii = renderMermaidASCII(code)
+      const ascii = renderMermaidASCII(code, ctx.theme.mermaidASCII || {})
       const maxWidth = ctx.theme.width || getTerminalWidth()
       const tooWide = ascii.split('\n').some((line) => stripAnsi(line).length > maxWidth)
       if (!tooWide) return ascii

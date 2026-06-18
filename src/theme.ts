@@ -1,5 +1,6 @@
 import chalk from 'chalk'
 
+import type { AsciiRenderOptions } from 'beautiful-mermaid'
 import type { ParsedNode } from 'stream-markdown-parser'
 
 /** A chalk-compatible style function: takes a string, returns a styled string. */
@@ -188,6 +189,8 @@ export interface ThemeOptions {
   /** Table rendering options (column widths, padding, borders) */
   tableOptions?: TableOptions
 
+  mermaidASCII?: AsciiRenderOptions
+
   /** Custom node renderers — override rendering for specific node types */
   renderers?: Renderers
 
@@ -239,6 +242,7 @@ export const defaultTheme: ResolvedTheme = {
 
   width: 0,
   tableOptions: {},
+  mermaidASCII: {},
   renderers: {},
   highlight: {},
 }
