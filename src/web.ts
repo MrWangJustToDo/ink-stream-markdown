@@ -1,5 +1,5 @@
 /**
- * Browser entry point for ink-stream-markdown.
+ * Web entry point for ink-stream-markdown.
  *
  * Uses browser-compatible shims:
  * - shiki/bundle/web instead of shiki/bundle-full.mjs
@@ -7,7 +7,7 @@
  * - No process.stdout.columns dependency
  *
  * Usage with ink-web:
- *   import { StreamMarkdown } from 'ink-stream-markdown/browser'
+ *   import { StreamMarkdown } from 'ink-stream-markdown/web'
  */
 export { StreamMarkdown } from './stream-markdown'
 export type { StreamMarkdownProps } from './stream-markdown'

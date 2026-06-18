@@ -1,6 +1,6 @@
 {
   "name": "ink-stream-markdown",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "A streaming markdown renderer component for Ink",
   "type": "module",
   "main": "./dist/index.mjs",
@@ -10,9 +10,9 @@
       "types": "./dist/index.d.mts",
       "default": "./dist/index.mjs"
     },
-    "./browser": {
-      "types": "./dist/browser.d.mts",
-      "default": "./dist/browser.mjs"
+    "./web": {
+      "types": "./dist/web.d.mts",
+      "default": "./dist/web.mjs"
     }
   },
   "sideEffects": false,

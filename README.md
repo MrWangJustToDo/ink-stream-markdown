@@ -270,19 +270,19 @@ const nodes2 = parser.parse('$E = mc^2$')
 
 ## Browser Usage (ink-web)
 
-This package provides a browser-compatible entry point for use with [ink-web](https://github.com/cjroth/ink-web), which renders Ink components into an xterm.js terminal in the browser.
+This package provides a web-compatible entry point for use with [ink-web](https://github.com/cjroth/ink-web), which renders Ink components into an xterm.js terminal in the browser.
 
 ```bash
 npm install ink-stream-markdown ink-web react
 ```
 
-Import from `ink-stream-markdown/browser` instead of `ink-stream-markdown`:
+Import from `ink-stream-markdown/web` instead of `ink-stream-markdown`:
 
 ```tsx
-import { StreamMarkdown, initHighlighter } from 'ink-stream-markdown/browser'
+import { StreamMarkdown, initHighlighter } from 'ink-stream-markdown/web'
 ```
 
-The browser entry swaps terminal-specific dependencies with browser-compatible shims:
+The web entry swaps terminal-specific dependencies with browser-compatible shims:
 
 - **Shiki** uses `shiki/bundle/web` (loads grammars via fetch instead of fs)
 - **Links** use OSC 8 escape sequences (supported by xterm.js) instead of `terminal-link`
@@ -307,7 +307,7 @@ export default defineConfig({
 
 ### Next.js / Webpack Setup
 
-Alias `ink` to `ink-web` so Webpack resolves the browser-compatible renderer:
+Alias `ink` to `ink-web` so Webpack resolves the web-compatible renderer:
 
 ```javascript
 /** @type {import('next').NextConfig} */

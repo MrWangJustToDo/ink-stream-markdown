@@ -10,7 +10,7 @@ export default defineConfig([
     deps: { neverBundle: ['react', 'ink'] },
   },
   {
-    entry: { browser: 'src/browser.ts' },
+    entry: { web: 'src/web.ts' },
     format: ['esm'],
     dts: true,
     deps: { neverBundle: ['react', 'ink'] },
