@@ -73,6 +73,33 @@ export interface Renderers {
   [key: string]: NodeRenderer | undefined
 }
 
+/** Border character set for table rendering */
+export interface TableBorderChars {
+  topLeft?: string
+  topRight?: string
+  bottomLeft?: string
+  bottomRight?: string
+  horizontal?: string
+  vertical?: string
+  teeDown?: string
+  teeUp?: string
+  teeRight?: string
+  teeLeft?: string
+  cross?: string
+}
+
+/** Options to customize table rendering */
+export interface TableOptions {
+  /** Minimum column width (default: 5) */
+  minColumnWidth?: number
+  /** Cell padding — spaces on each side of content (default: 1) */
+  cellPadding?: number
+  /** Draw horizontal separators between body rows (default: true) */
+  rowSeparator?: boolean
+  /** Custom border characters */
+  borderChars?: TableBorderChars
+}
+
 /**
  * Options to customize the code highlighting pipeline.
  *
@@ -89,6 +116,13 @@ export interface HighlightOptions {
    * If the language is unsupported, return the plain code string.
    */
   highlightCode?: (code: string, lang: string) => string
+  /**
+   * Custom renderer for mermaid diagram code blocks.
+   * Receives the raw mermaid source and returns a styled string.
+   * Set to `false` to disable mermaid rendering (shows as plain code block).
+   * Default: built-in beautiful-mermaid ASCII renderer with terminal-width fallback.
+   */
+  renderMermaid?: ((code: string) => string) | false
 }
 
 /**
@@ -151,8 +185,8 @@ export interface ThemeOptions {
 
   /** Terminal width override (defaults to `process.stdout.columns` or 80) */
   width?: number
-  /** cli-table3 options passthrough */
-  tableOptions?: Record<string, unknown>
+  /** Table rendering options (column widths, padding, borders) */
+  tableOptions?: TableOptions
 
   /** Custom node renderers — override rendering for specific node types */
   renderers?: Renderers

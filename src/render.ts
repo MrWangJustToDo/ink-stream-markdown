@@ -1,9 +1,11 @@
 import chalk from 'chalk'
-import Table from 'cli-table3'
+import stripAnsi from 'strip-ansi'
 import { renderMermaidASCII } from 'beautiful-mermaid'
 import unicodeit from 'unicodeit'
 
 import { terminalLink, highlightCode, getTerminalWidth } from './platform'
+import { renderTableString, calculateColumnWidths } from './utils/table'
+import type { CellAlign } from './utils/table'
 import { defaultTheme, resolveTheme } from './theme'
 import type { RenderContext, NodeRenderer, ThemeOptions } from './theme'
 import type { ThemedToken } from 'shiki'
@@ -49,13 +51,6 @@ import type {
   UnknownNode,
 } from 'stream-markdown-parser'
 
-/* eslint-disable no-control-regex */
-const ANSI_RE = /\x1B\[[0-9;]*m/g
-const stripAnsi = (s: string) => s.replace(ANSI_RE, '')
-const stripUnderline = (s: string) => s.replace(/\x1B\[4m/g, '').replace(/\x1B\[24m/g, '')
-const OSC8_RE = /\x1B\]8;[^;]*;[^\x07]*\x07/g
-const sanitizeForTable = (s: string) => stripUnderline(s).replace(OSC8_RE, '')
-/* eslint-enable no-control-regex */
 
 const createContext = (theme: typeof defaultTheme): RenderContext => ({
   listDepth: 0,
@@ -121,6 +116,13 @@ export const defaultHighlightCode = (
 ): string => {
   const ctx = _ctx || createContext(defaultTheme)
   if (lang === 'mermaid') {
+    const mermaidOpt = ctx.theme.highlight?.renderMermaid
+    if (mermaidOpt === false) {
+      return ctx.theme.codeBlock(code)
+    }
+    if (typeof mermaidOpt === 'function') {
+      return mermaidOpt(code)
+    }
     try {
       const ascii = renderMermaidASCII(code)
       const maxWidth = ctx.theme.width || getTerminalWidth()
@@ -236,7 +238,6 @@ const renderBlockquote: NodeRenderer = (node, ctx, rc) => {
 const renderLink: NodeRenderer = (node, ctx) => {
   const n = node as LinkNode
   const text = n.text || n.href
-  // Use terminal-link to make clickable links in supported terminals
   return ctx.theme.link(terminalLink(ctx.theme.href(text), n.href))
 }
 
@@ -247,31 +248,36 @@ const renderImage: NodeRenderer = (node, ctx) => {
 const renderTable: NodeRenderer = (node, ctx, rc) => {
   const n = node as TableNode
   const numCols = n.header.cells.length
+  if (numCols === 0) return ''
+
   const termWidth = ctx.theme.width || getTerminalWidth()
-  const availableWidth = termWidth - (numCols + 1) * 3 - 1
-  const colWidth = Math.max(10, Math.floor(availableWidth / numCols))
+  const borderOverhead = numCols + 1 + numCols * 2
 
-  const colWidths = Array.from({ length: numCols }, () => colWidth)
-
-  const table = new Table({
-    head: n.header.cells.map((cell) =>
-      sanitizeForTable(ctx.theme.heading(rc(cell.children, ctx)).toString()),
-    ),
-    colWidths,
-    wordWrap: true,
-    wrapOnWordBoundary: true,
-    style: {
-      head: [],
-      border: ['gray'],
-    },
-    ...ctx.theme.tableOptions,
+  const headers = n.header.cells.map((cell) =>
+    ctx.theme.heading(rc(cell.children, ctx)).toString(),
+  )
+  const rows = n.rows.map((row) => {
+    const cells = row.cells.map((cell) => rc(cell.children, ctx))
+    while (cells.length < numCols) cells.push('')
+    return cells.slice(0, numCols)
   })
+  const aligns: CellAlign[] = n.header.cells.map(
+    (cell) => (cell as TableCellNode).align ?? 'left',
+  )
 
-  n.rows.forEach((row) => {
-    table.push(row.cells.map((cell) => sanitizeForTable(rc(cell.children, ctx))))
-  })
+  const tableOpts = ctx.theme.tableOptions
+  const minColWidth = tableOpts.minColumnWidth
 
-  return ctx.theme.table(table.toString())
+  const { widths, needsHardWrap } = calculateColumnWidths(
+    headers,
+    rows,
+    termWidth - borderOverhead,
+    minColWidth,
+  )
+
+  return ctx.theme.table(
+    renderTableString(headers, rows, widths, aligns, ctx.theme.border, needsHardWrap, tableOpts),
+  )
 }
 
 const renderTableRow: NodeRenderer = (node, ctx, rc) => {

@@ -18,6 +18,8 @@ export type {
   NodeRenderer,
   Renderers,
   HighlightOptions,
+  TableOptions,
+  TableBorderChars,
 } from './theme'
 export type {
   GetMarkdownOptions,

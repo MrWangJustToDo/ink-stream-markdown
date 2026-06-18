@@ -174,7 +174,7 @@ export const md2 = `## Recent Announcements
 
 | Date | Category | Details |
 |------|----------|---------|
-| Jun 3 | Announcement | [Introducing the Services Track and Partner Hub of the Claude Partner Network](https://www.anthropic.com/news/partner-hub) — Launch of partner services and collaboration hub |
+| Jun 3 | Announcement 🤖 | [Introducing the Services Track and Partner Hub of the Claude Partner Network](https://www.anthropic.com/news/partner-hub) — Launch of partner services and collaboration hub |
 | Jun 3 | Policy | [What we learned mapping a year's worth of AI-enabled cyber threats](https://www.anthropic.com/news/ai-cyber-threats) — A year of AI threat landscape research |
 | Jun 2 | Announcement | [Expanding Project Glasswing](https://www.anthropic.com/news/glasswing) — Expanding to 15 countries and approximately 150 new organizations |
 | Jun 1 | Announcement | [Anthropic confidentially submits draft S-1 to the SEC](https://www.anthropic.com/news/s1) — Anthropic files confidential S-1 draft with the SEC (IPO preparation) |

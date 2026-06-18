@@ -107,11 +107,44 @@ import { StreamMarkdown } from 'ink-stream-markdown'
 
 **Semantic colors** — `muted`, `border`, `success`, `warning`, `error`, `info`, `purple`
 
-**Layout** — `width` (terminal width override, defaults to `process.stdout.columns`), `tableOptions` (passthrough to [cli-table3](https://github.com/cli-table/cli-table3))
+**Layout** — `width` (terminal width override, defaults to `process.stdout.columns`), `tableOptions` (table rendering options, see below)
 
 **Renderers** — `renderers` (custom render functions per node type, see below)
 
 **Highlight** — `highlight` (custom code highlighting pipeline, see below)
+
+### Table Options
+
+Fine-tune table rendering via `theme.tableOptions`:
+
+```tsx
+<StreamMarkdown
+  theme={{
+    tableOptions: {
+      minColumnWidth: 8,
+      cellPadding: 2,
+      rowSeparator: false,
+      borderChars: {
+        topLeft: '╭', topRight: '╮',
+        bottomLeft: '╰', bottomRight: '╯',
+        horizontal: '─', vertical: '│',
+        teeDown: '┬', teeUp: '┴',
+        teeRight: '├', teeLeft: '┤',
+        cross: '┼',
+      },
+    },
+  }}
+>
+  {md}
+</StreamMarkdown>
+```
+
+| Option           | Type               | Default | Description                                        |
+| ---------------- | ------------------ | ------- | -------------------------------------------------- |
+| `minColumnWidth` | `number`           | `5`     | Minimum column width before hard-wrapping words     |
+| `cellPadding`    | `number`           | `1`     | Spaces on each side of cell content                 |
+| `rowSeparator`   | `boolean`          | `true`  | Draw horizontal lines between body rows             |
+| `borderChars`    | `TableBorderChars` | —       | Override box-drawing characters (e.g. rounded corners) |
 
 ## Custom Renderers
 
@@ -179,9 +212,10 @@ import { StreamMarkdown, defaultHighlightCode } from 'ink-stream-markdown'
 </StreamMarkdown>
 ```
 
-| Option          | Type                                     | Description                                                         |
-| --------------- | ---------------------------------------- | ------------------------------------------------------------------- |
-| `highlightCode` | `(code: string, lang: string) => string` | Replace the code-to-styled-string pipeline (default: Shiki + chalk) |
+| Option          | Type                                              | Description                                                                       |
+| --------------- | ------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `highlightCode` | `(code: string, lang: string) => string`          | Replace the code-to-styled-string pipeline (default: Shiki + chalk)               |
+| `renderMermaid` | `((code: string) => string) \| false` | Custom mermaid renderer, or `false` to disable (default: beautiful-mermaid ASCII) |
 
 `defaultHighlightCode` is exported so you can compose custom logic on top of the built-in Shiki pipeline.
 
@@ -273,7 +307,7 @@ export default defineConfig({
 
 ### Next.js / Webpack Setup
 
-`cli-table3` (used for table rendering) has an optional dependency on `@colors/colors`, which tries to import `os`. This is wrapped in a try-catch and works fine at runtime, but webpack still attempts to resolve it at build time. Add a fallback to suppress the error:
+Alias `ink` to `ink-web` so Webpack resolves the browser-compatible renderer:
 
 ```javascript
 /** @type {import('next').NextConfig} */
@@ -283,10 +317,6 @@ const config = {
       ...config.resolve.alias,
       ink: 'ink-web',
     }
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      os: false,
-    }
     return config
   },
 }
@@ -294,13 +324,12 @@ const config = {
 export default config
 ```
 
-For a standalone webpack config, the same applies:
+For a standalone webpack config:
 
 ```javascript
 module.exports = {
   resolve: {
     alias: { ink: 'ink-web' },
-    fallback: { os: false },
   },
 }
 ```
