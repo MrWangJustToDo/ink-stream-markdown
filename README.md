@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/ink-stream-markdown)](https://www.npmjs.com/package/ink-stream-markdown)
 [![npm downloads](https://img.shields.io/npm/dm/ink-stream-markdown)](https://www.npmjs.com/package/ink-stream-markdown)
 
-A streaming markdown renderer for [Ink](https://github.com/vadimdemedes/ink). Parses markdown with [stream-markdown-parser](https://github.com/nicepkg/stream-markdown-parser), highlights code blocks with [Shiki](https://shiki.style), and renders styled output to the terminal.
+A streaming markdown renderer for [Ink](https://github.com/vadimdemedes/ink). Parses markdown with [stream-markdown-parser](https://github.com/nicepkg/stream-markdown-parser), highlights code blocks with [Shiki](https://shiki.style), renders Mermaid diagrams as ASCII art with [beautiful-mermaid](https://github.com/lukilabs/beautiful-mermaid), and outputs styled text to the terminal.
 
 | Markdown rendering                    | Syntax highlighting                  |
 | ------------------------------------- | ------------------------------------ |
@@ -89,7 +89,7 @@ The default theme uses a GitHub dark mode color palette. Override any style with
 ```tsx
 import chalk from 'chalk'
 import { StreamMarkdown } from 'ink-stream-markdown'
-;<StreamMarkdown
+<StreamMarkdown
   theme={{
     heading: chalk.red.bold,
     code: chalk.cyan,
@@ -107,7 +107,7 @@ import { StreamMarkdown } from 'ink-stream-markdown'
 
 **Semantic colors** — `muted`, `border`, `success`, `warning`, `error`, `info`, `purple`
 
-**Layout** — `width` (terminal width override, defaults to `process.stdout.columns`), `tableOptions` (table rendering options, see below)
+**Layout** — `width` (terminal width override, defaults to `process.stdout.columns`), `tableOptions` (table rendering options, see below), `mermaidASCII` (ASCII mermaid renderer options, see below)
 
 **Renderers** — `renderers` (custom render functions per node type, see below)
 
@@ -145,6 +145,61 @@ Fine-tune table rendering via `theme.tableOptions`:
 | `cellPadding`    | `number`           | `1`     | Spaces on each side of cell content                 |
 | `rowSeparator`   | `boolean`          | `true`  | Draw horizontal lines between body rows             |
 | `borderChars`    | `TableBorderChars` | —       | Override box-drawing characters (e.g. rounded corners) |
+
+### Mermaid Diagrams
+
+Fenced code blocks with language `mermaid` are rendered as ASCII diagrams via [beautiful-mermaid](https://github.com/lukilabs/beautiful-mermaid). If a diagram is unsupported or wider than the terminal, it falls back to a plain code block.
+
+````markdown
+```mermaid
+graph TD
+  A[Start] --> B{Decision}
+  B -->|Yes| C[Action]
+  B -->|No| D[End]
+```
+````
+
+Fine-tune ASCII rendering via `theme.mermaidASCII` (options from beautiful-mermaid's `AsciiRenderOptions`):
+
+```tsx
+<StreamMarkdown
+  theme={{
+    mermaidASCII: {
+      useAscii: true,       // use +,-,|,> instead of box-drawing chars
+      colorMode: 'truecolor',
+    },
+  }}
+>
+  {md}
+</StreamMarkdown>
+```
+
+| Option            | Type                                      | Default | Description                                      |
+| ----------------- | ----------------------------------------- | ------- | ------------------------------------------------ |
+| `useAscii`        | `boolean`                                 | `false` | Use plain ASCII chars instead of Unicode borders |
+| `paddingX`        | `number`                                  | `5`     | Horizontal spacing between nodes                 |
+| `paddingY`        | `number`                                  | `5`     | Vertical spacing between nodes                   |
+| `boxBorderPadding`| `number`                                  | `1`     | Padding inside node boxes                        |
+| `colorMode`       | `'none' \| 'auto' \| 'ansi16' \| 'ansi256' \| 'truecolor' \| 'html'` | `'auto'` | ANSI color mode for diagram output    |
+| `theme`           | `Partial<AsciiTheme>`                     | —       | Per-element colors (fg, border, line, arrow, etc.) |
+
+Override or disable mermaid rendering via `highlight.renderMermaid` (on the `highlight` prop or `theme.highlight`):
+
+```tsx
+// Custom renderer
+<StreamMarkdown
+  highlight={{
+    renderMermaid: (code) => myCustomMermaidRenderer(code),
+  }}
+>
+  {md}
+</StreamMarkdown>
+
+// Disable mermaid rendering (show as plain code block)
+<StreamMarkdown highlight={{ renderMermaid: false }}>
+  {md}
+</StreamMarkdown>
+```
 
 ## Custom Renderers
 
@@ -339,6 +394,7 @@ module.exports = {
 - Headings (h1–h6)
 - Paragraphs, bold, italic, strikethrough
 - Inline code and fenced code blocks (with Shiki syntax highlighting)
+- Mermaid diagrams (rendered as ASCII art via beautiful-mermaid)
 - Ordered and unordered lists (with nesting)
 - Blockquotes
 - Tables

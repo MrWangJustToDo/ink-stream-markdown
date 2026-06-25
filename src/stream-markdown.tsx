@@ -58,7 +58,7 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
   )
 
   const mergedTheme = useMemo(() => {
-    if (!highlight?.highlightCode) return theme
+    if (!highlight) return theme
     return {
       ...theme,
       highlight: { ...theme?.highlight, ...highlight },

@@ -24,8 +24,8 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       stream-markdown-parser:
-        specifier: ^1.0.5
-        version: 1.0.5
+        specifier: ^1.0.7
+        version: 1.0.7
       string-width:
         specifier: ^8.2.1
         version: 8.2.1
@@ -1065,8 +1065,8 @@ packages:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
 
-  linkify-it@5.0.0:
-    resolution: {integrity: sha512-5aHCbzQRADcdP+ATqnDuhhJ/MRIqDkZX5pyjFHRRysS8vZ5AbqGEoFIb6pYHPZ+L/OC2Lc+xT8uHVVR5CAK/wQ==}
+  linkify-it@5.0.1:
+    resolution: {integrity: sha512-wVoTjP4Q6R0NW5hiZkVJaFZPWgtXfoGF+6LucL3/FtiNjmcHhYjEr5f1Kqjirc1nBW07J/ZuRFumqr2oqccEWg==}
 
   locate-path@6.0.0:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
@@ -1096,8 +1096,8 @@ packages:
   markdown-it-task-checkbox@1.0.6:
     resolution: {integrity: sha512-7pxkHuvqTOu3iwVGmDPeYjQg+AIS9VQxzyLP9JCg9lBjgPAJXGEkChK6A2iFuj3tS0GV3HG2u5AMNhcQqwxpJw==}
 
-  markdown-it-ts@1.0.0:
-    resolution: {integrity: sha512-hQT/yCYryC3jNs2wJ35R4m1zKcBxNuFaKCGzwpmq2OuMXMNbUK1oTwCxONIjy5lXWWG1UCNbGXe1nbTiWbH/iA==}
+  markdown-it-ts@1.0.2:
+    resolution: {integrity: sha512-zba9mN313K2HmKk+BOHqkO/nuZtj9M1TTnUlSbItGrCMpYzc8OHGCm+IaqxWCi2pGcgpiFC8ltxkasYWYpp/YQ==}
     engines: {node: '>=18'}
 
   mdast-util-to-hast@13.2.1:
@@ -1296,8 +1296,8 @@ packages:
     resolution: {integrity: sha512-XlkWvfIm6RmsWtNJx+uqtKLS8eqFbxUg0ZzLXqY0caEy9l7hruX8IpiDnjsLavoBgqCCR71TqWO8MaXYheJ3RQ==}
     engines: {node: '>=10'}
 
-  stream-markdown-parser@1.0.5:
-    resolution: {integrity: sha512-gh+yUjRcITGf0ILMVOAH2bRxe5M6f1U4XrQGc2k+UAMblDByvi6Xmt85EPluRypb+VGcpnNxBFBP0ZgursGoZw==}
+  stream-markdown-parser@1.0.7:
+    resolution: {integrity: sha512-IkWYtBv+9QPDzKKOoy1ZxuiwpcL0APfgUrBlUt9L4s0Sq5XnHY9rQK7tOs46ouHOX/OR0Nq6zTqfV0vbtLD4RA==}
 
   string-width@8.2.1:
     resolution: {integrity: sha512-IIaP0g3iy9Cyy18w3M9YcaDudujEAVHKt3a3QJg1+sr/oX96TbaGUubG0hJyCjCBThFH+tFpcIyoUHUn1ogaLA==}
@@ -2442,7 +2442,7 @@ snapshots:
       prelude-ls: 1.2.1
       type-check: 0.4.0
 
-  linkify-it@5.0.0:
+  linkify-it@5.0.1:
     dependencies:
       uc.micro: 2.1.0
 
@@ -2468,12 +2468,12 @@ snapshots:
 
   markdown-it-task-checkbox@1.0.6: {}
 
-  markdown-it-ts@1.0.0:
+  markdown-it-ts@1.0.2:
     dependencies:
       '@types/linkify-it': 5.0.0
       '@types/mdurl': 2.0.0
       entities: 4.5.0
-      linkify-it: 5.0.0
+      linkify-it: 5.0.1
       mdurl: 2.0.0
       punycode.js: 2.3.1
       uc.micro: 2.1.0
@@ -2673,7 +2673,7 @@ snapshots:
     dependencies:
       escape-string-regexp: 2.0.0
 
-  stream-markdown-parser@1.0.5:
+  stream-markdown-parser@1.0.7:
     dependencies:
       markdown-it-container: 4.0.0
       markdown-it-footnote: 4.0.0
@@ -2682,7 +2682,7 @@ snapshots:
       markdown-it-sub: 2.0.0
       markdown-it-sup: 2.0.0
       markdown-it-task-checkbox: 1.0.6
-      markdown-it-ts: 1.0.0
+      markdown-it-ts: 1.0.2
 
   string-width@8.2.1:
     dependencies:
