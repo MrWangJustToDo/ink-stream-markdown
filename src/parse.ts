@@ -59,7 +59,9 @@ const preprocessEmojiLists = (markdown: string): string => {
  *
  * @param markdown - The markdown content to parse
  * @param md - Optional MarkdownIt instance (created if not provided)
- * @param parseOptions - Optional per-parse options (token transforms, link validation, etc.)
+ * @param parseOptions - Optional per-parse options (token transforms, link validation, etc.). Unless the caller
+ *   explicitly sets `final` or `streamParse`, this defaults to `{ final: true }` — each document is parsed as a
+ *   complete one-shot (no incremental stream parse or source-cache reuse), which is safe when reusing one instance.
  * @returns Array of parsed nodes
  */
 export const parseMarkdown = (
@@ -69,7 +71,19 @@ export const parseMarkdown = (
 ): ParsedNode[] => {
   const instance = md ?? getMarkdown()
   const preprocessed = preprocessEmojiLists(markdown)
-  return parseMarkdownToStructure(preprocessed, instance, parseOptions)
+
+  // This package renders complete markdown documents as a string each pass
+  // (no incremental token reuse). Opt out of stream-parsing / source-cache
+  // accumulation on the shared md instance by default, while still honoring
+  // an explicit `final` or `streamParse` supplied by the caller.
+  const hasStreamOption =
+    parseOptions != null &&
+    ('final' in parseOptions || 'streamParse' in parseOptions)
+  const options: ParseOptions = hasStreamOption
+    ? parseOptions
+    : { ...parseOptions, final: true }
+
+  return parseMarkdownToStructure(preprocessed, instance, options)
 }
 
 /**

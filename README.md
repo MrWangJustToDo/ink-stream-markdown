@@ -80,7 +80,7 @@ render(<StreamingApp />)
 | `theme`         | `ThemeOptions`       | Style overrides (colors, renderers, width, table options)               |
 | `highlight`     | `HighlightOptions`   | Custom code highlighting pipeline (tokenization and/or token rendering) |
 | `parserOptions` | `GetMarkdownOptions` | markdown-it instance options (plugins, math, containers, etc.)          |
-| `parseOptions`  | `ParseOptions`       | Per-parse options (token transforms, link validation, etc.)             |
+| `parseOptions`  | `ParseOptions`       | Per-parse options (token transforms, link validation, etc.). Defaults to `{ final: true }` unless `final`/`streamParse` is set |
 
 ## Theming
 
