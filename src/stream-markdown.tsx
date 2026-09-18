@@ -4,6 +4,8 @@ import { getMarkdown } from 'stream-markdown-parser'
 
 import { parseMarkdown } from './parse'
 import { renderNodesToString } from './render'
+import { getTerminalWidth } from './platform'
+import { clampToHeight, type FoldIndicator } from './utils/line-clamp'
 import type { ThemeOptions, HighlightOptions } from './theme'
 import type { GetMarkdownOptions, ParseOptions } from 'stream-markdown-parser'
 
@@ -26,6 +28,32 @@ export interface StreamMarkdownProps {
    * Provide a `highlightCode(code, lang)` function that returns a styled string.
    */
   highlight?: HighlightOptions
+  /**
+   * Maximum number of visible lines. When the rendered content exceeds this
+   * height, the overflow is folded and a fold indicator line is shown.
+   * Defaults to unlimited.
+   */
+  height?: number
+  /**
+   * Whether the content is still streaming in. This single flag drives both the
+   * visible window and the parser:
+   *
+   * - While `true`, the parser runs in incremental stream mode (`final: false`,
+   *   re-parsing only the appended tail) and the visible window is tail-anchored
+   *   with the fold indicator on top.
+   * - When set to `false` (or omitted), the parser performs a final one-shot
+   *   parse (resetting its stream cache) and content renders from the start
+   *   with the fold indicator at the bottom.
+   *
+   * An explicit `final` in `parseOptions` takes precedence over this flag.
+   */
+  streaming?: boolean
+  /**
+   * Custom renderer for the fold indicator line. Receives the number of folded
+   * lines and the current streaming state; return the full (styled) line text.
+   * Defaults to a dim "↓/↑ N lines folded".
+   */
+  foldIndicator?: FoldIndicator
 }
 
 /**
@@ -46,15 +74,34 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
   parserOptions,
   parseOptions,
   highlight,
+  height,
+  streaming = false,
+  foldIndicator,
 }) => {
   const instance = useMemo(
     () => getMarkdown(undefined, parserOptions),
     [parserOptions],
   )
 
+  // Pre-compute the unified streaming state — a single source of truth that
+  // both consumers derive from instead of reading the raw props:
+  //   - `parseOptions` fixes `final`: while streaming it stays incremental
+  //     (`final: false` keeps the parser's stream cache so only the appended
+  //     tail is re-parsed); once complete `final: true` does a one-shot parse
+  //     and resets the cache. An explicit user `final` wins.
+  //   - `streaming` keeps the fold window in sync with the parser.
+  const streamState = useMemo(
+    (): { streaming: boolean; parseOptions: ParseOptions } => {
+      const final = parseOptions?.final ?? !streaming
+      return { streaming, parseOptions: { ...parseOptions, final } }
+    },
+    [parseOptions, streaming],
+  )
+
   const nodes = useMemo(
-    () => parseMarkdown(children || '', instance, parseOptions),
-    [children, instance, parseOptions],
+    () =>
+      parseMarkdown(children || '', instance, streamState.parseOptions),
+    [children, instance, streamState],
   )
 
   const mergedTheme = useMemo(() => {
@@ -65,10 +112,16 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
     } as ThemeOptions
   }, [theme, highlight])
 
-  const rendered = useMemo(
-    () => renderNodesToString(nodes, mergedTheme),
-    [nodes, mergedTheme],
-  )
+  const rendered = useMemo(() => {
+    const full = renderNodesToString(nodes, mergedTheme)
+    if (!height || height <= 0) return full
+    return clampToHeight(full, {
+      height,
+      width: getTerminalWidth(),
+      streaming: streamState.streaming,
+      foldIndicator,
+    })
+  }, [nodes, mergedTheme, height, streamState, foldIndicator])
 
   return <Text>{rendered}</Text>
 }

@@ -81,6 +81,9 @@ render(<StreamingApp />)
 | `highlight`     | `HighlightOptions`   | Custom code highlighting pipeline (tokenization and/or token rendering) |
 | `parserOptions` | `GetMarkdownOptions` | markdown-it instance options (plugins, math, containers, etc.)          |
 | `parseOptions`  | `ParseOptions`       | Per-parse options (token transforms, link validation, etc.). Defaults to `{ final: true }` unless `final`/`streamParse` is set |
+| `height`        | `number`             | Max visible lines. Overflow is folded behind a fold-indicator line. Unlimited by default |
+| `streaming`     | `boolean`            | One flag driving both parser and window: `true` → incremental parse (`final:false`, re-parse only the appended tail) + tail-anchored window (fold indicator on top); `false` → final one-shot parse (resets stream cache, explicit `parseOptions.final` wins) + render from start with fold indicator at bottom |
+| `foldIndicator` | `FoldIndicator`      | `(folded, streaming) => string` — custom indicator line. Default: dim `↓/↑ N lines folded` |
 
 ## Theming
 

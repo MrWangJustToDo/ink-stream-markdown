@@ -1,5 +1,6 @@
 export { StreamMarkdown } from './stream-markdown'
 export type { StreamMarkdownProps } from './stream-markdown'
+export type { FoldIndicator } from './utils/line-clamp'
 
 export { parseMarkdown, createParser } from './parse'
 export { initHighlighter, clearHighlightCache } from './platform'
