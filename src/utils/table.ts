@@ -5,7 +5,7 @@ import stripAnsi from 'strip-ansi'
 import type { TableOptions, TableBorderChars } from '../theme'
 
 const DEFAULT_MIN_COL_WIDTH = 5
-const DEFAULT_CELL_PADDING = 1
+export const DEFAULT_CELL_PADDING = 1
 
 const DEFAULT_BORDER: Required<TableBorderChars> = {
   topLeft: '\u250C',
@@ -46,7 +46,11 @@ function padAligned(
 function wrapCell(text: string, width: number, hard: boolean): string[] {
   if (width <= 0) return [text]
   const trimmed = text.trimEnd()
-  const wrapped = wrapAnsi(trimmed, width, { hard, wordWrap: true, trim: false })
+  const wrapped = wrapAnsi(trimmed, width, {
+    hard,
+    wordWrap: true,
+    trim: false,
+  })
   const lines = wrapped.split('\n').filter((l) => l.length > 0)
   return lines.length > 0 ? lines : ['']
 }
@@ -56,10 +60,6 @@ function longestWordWidth(text: string, minWidth: number): number {
   const words = plain.split(/\s+/).filter((w) => w.length > 0)
   if (words.length === 0) return minWidth
   return Math.max(...words.map((w) => stringWidth(w)), minWidth)
-}
-
-function cellContentWidth(text: string, minWidth: number): number {
-  return Math.max(stringWidth(stripAnsi(text)), minWidth)
 }
 
 /**
@@ -82,17 +82,23 @@ export function calculateColumnWidths(
     return w
   })
 
+  // Natural (unfloored) content width per column, measured in the same pass as
+  // the ideal widths — `stringWidth` is expensive, so one pass per column only.
+  const naturalWidths: number[] = []
   const idealWidths = headers.map((h, col) => {
-    let w = cellContentWidth(h, minColWidth)
+    let w = stringWidth(h)
     for (const row of rows) {
-      if (row[col]) w = Math.max(w, cellContentWidth(row[col], minColWidth))
+      if (row[col]) w = Math.max(w, stringWidth(row[col]))
     }
-    return w
+    naturalWidths[col] = w
+    return Math.max(w, minColWidth)
   })
 
   const totalIdeal = idealWidths.reduce((s, w) => s + w, 0)
   const totalMin = minWidths.reduce((s, w) => s + w, 0)
-  const space = Math.max(availableWidth, numCols * minColWidth)
+  // Never budget below one character per column: less than that cannot be drawn
+  // at all (the caller falls back to the markdown source instead).
+  const space = Math.max(availableWidth, numCols)
 
   if (totalIdeal <= space) {
     return { widths: idealWidths, needsHardWrap: false }
@@ -109,8 +115,49 @@ export function calculateColumnWidths(
     return { widths, needsHardWrap: false }
   }
 
+  // Space is tighter than the natural column widths: shrink all columns
+  // proportionally, hard-wrapping where they end up narrower than one word.
   const scale = space / totalMin
-  const widths = minWidths.map((w) => Math.max(Math.floor(w * scale), minColWidth))
+  const floored = minWidths.map((w) =>
+    Math.max(Math.floor(w * scale), minColWidth),
+  )
+  if (floored.reduce((s, w) => s + w, 0) <= space) {
+    return { widths: floored, needsHardWrap: true }
+  }
+
+  // Keeping every column at `minColWidth` does not fit: squeeze down to a
+  // readable minimum — a column may only end up narrower than `minColWidth`
+  // when its content is narrower to begin with. Below that the cells would be
+  // shredded (one or two characters per line), which is less useful than the
+  // markdown source, so the caller falls back to it (the squeezed widths may
+  // overrun the budget).
+  const floors = naturalWidths.map((natural) =>
+    Math.max(Math.min(minColWidth, natural), 1),
+  )
+  const widths = minWidths.map((w, i) =>
+    Math.max(Math.floor(w * scale), floors[i]!),
+  )
+  let diff = space - widths.reduce((s, w) => s + w, 0)
+  while (diff > 0) {
+    const deficit = widths.map((w, i) => minWidths[i]! - w)
+    widths[deficit.indexOf(Math.max(...deficit))]!++
+    diff--
+  }
+  while (diff < 0) {
+    // Shrink the widest column that is still above its floor
+    let widest = -1
+    for (let i = 0; i < widths.length; i++) {
+      if (
+        widths[i]! > floors[i]! &&
+        (widest === -1 || widths[i]! > widths[widest]!)
+      ) {
+        widest = i
+      }
+    }
+    if (widest === -1) break
+    widths[widest]!--
+    diff++
+  }
   return { widths, needsHardWrap: true }
 }
 
@@ -131,7 +178,10 @@ export function renderTableString(
   const style = borderStyle ?? ((s: string) => s)
   const pad = options?.cellPadding ?? DEFAULT_CELL_PADDING
   const rowSep = options?.rowSeparator ?? true
-  const box: Required<TableBorderChars> = { ...DEFAULT_BORDER, ...options?.borderChars }
+  const box: Required<TableBorderChars> = {
+    ...DEFAULT_BORDER,
+    ...options?.borderChars,
+  }
 
   function renderRow(cells: string[], isHeader: boolean): string[] {
     const wrappedCells = cells.map((cell, i) =>

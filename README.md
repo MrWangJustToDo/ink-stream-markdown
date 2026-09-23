@@ -106,7 +106,7 @@ import { StreamMarkdown } from 'ink-stream-markdown'
 
 ### Available Theme Keys
 
-**Text styles** — `text`, `heading`, `firstHeading`, `link`, `href`, `strong`, `em`, `del`, `code`, `codeBlock`, `blockquote`, `listItem`, `hr`, `html`, `table`, `mark`
+**Text styles** — `text`, `heading`, `firstHeading`, `link`, `href`, `strong`, `em`, `del`, `code`, `codeBlock`, `blockquote`, `listItem`, `hr`, `html`, `table`, `tableFallback`, `mark`
 
 **Semantic colors** — `muted`, `border`, `success`, `warning`, `error`, `info`, `purple`
 
@@ -144,10 +144,26 @@ Fine-tune table rendering via `theme.tableOptions`:
 
 | Option           | Type               | Default | Description                                        |
 | ---------------- | ------------------ | ------- | -------------------------------------------------- |
-| `minColumnWidth` | `number`           | `5`     | Minimum column width before hard-wrapping words     |
+| `minColumnWidth` | `number`           | `5`     | Minimum column width; a column only goes narrower when its content is narrower, else the table is printed as markdown |
 | `cellPadding`    | `number`           | `1`     | Spaces on each side of cell content                 |
 | `rowSeparator`   | `boolean`          | `true`  | Draw horizontal lines between body rows             |
 | `borderChars`    | `TableBorderChars` | —       | Override box-drawing characters (e.g. rounded corners) |
+
+A table that does not fit the available width is squeezed first: columns shrink
+down to `minColumnWidth` — or to the width of their own content when that is
+narrower — and cell text is wrapped. When even that does not fit, the table is
+printed as its markdown source instead of a box that shreds cells into one or two
+characters per line (or that Ink wraps and shatters):
+
+```md
+| Date | Category | Details |
+| :--- | :--- | :--- |
+| Jun 3 | Announcement | ... |
+```
+
+Cell text is taken from the source, so inline markup and links stay intact.
+That fallback output goes through `theme.tableFallback` (default: no styling) —
+pass e.g. `tableFallback: chalk.dim` to mark it as degraded rendering.
 
 ### Mermaid Diagrams
 
@@ -233,11 +249,16 @@ const myHeading: NodeRenderer = (node, ctx, renderChildren) => {
 
 Every renderer receives three arguments:
 
-| Argument         | Type                        | Description                                    |
-| ---------------- | --------------------------- | ---------------------------------------------- |
-| `node`           | `ParsedNode`                | The parsed markdown AST node                   |
-| `ctx`            | `RenderContext`             | Rendering context with `theme` and `listDepth` |
-| `renderChildren` | `(children, ctx) => string` | Helper to render child nodes                   |
+| Argument         | Type                        | Description                                       |
+| ---------------- | --------------------------- | ------------------------------------------------- |
+| `node`           | `ParsedNode`                | The parsed markdown AST node                      |
+| `ctx`            | `RenderContext`             | Rendering context: `theme`, `listDepth`, `prefix` |
+| `renderChildren` | `(children, ctx) => string` | Helper to render child nodes                      |
+
+`ctx.prefix` holds the indentation already applied to the lines of the block
+being rendered (list indent + the blank run that aligns with the item marker).
+Renderers that lay out to a fixed width — like the built-in table — subtract the
+width of `ctx.prefix` from the terminal width so nested content still fits.
 
 The `defaultRenderers` map is exported so you can compose on top of built-in behavior.
 

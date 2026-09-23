@@ -1,10 +1,15 @@
 import chalk from 'chalk'
 import stripAnsi from 'strip-ansi'
+import stringWidth from 'string-width'
 import { renderMermaidASCII } from 'beautiful-mermaid'
 import unicodeit from 'unicodeit'
 
 import { terminalLink, highlightCode, getTerminalWidth } from './platform'
-import { renderTableString, calculateColumnWidths } from './utils/table'
+import {
+  renderTableString,
+  calculateColumnWidths,
+  DEFAULT_CELL_PADDING,
+} from './utils/table'
 import type { CellAlign } from './utils/table'
 import { defaultTheme, resolveTheme } from './theme'
 import type { RenderContext, NodeRenderer, ThemeOptions } from './theme'
@@ -41,7 +46,6 @@ import type {
   DefinitionItemNode,
   FootnoteNode,
   FootnoteReferenceNode,
-  FootnoteAnchorNode,
   VmrContainerNode,
   ReferenceNode,
   InlineNode,
@@ -51,11 +55,17 @@ import type {
   UnknownNode,
 } from 'stream-markdown-parser'
 
-
 const createContext = (theme: typeof defaultTheme): RenderContext => ({
   listDepth: 0,
+  prefix: '',
   theme,
 })
+
+/** Display width reserved by the current line prefix (list indent + marker). */
+const prefixWidth = (ctx: RenderContext): number =>
+  // `prefix` only ever holds spaces, so its width is its length — cheaper than
+  // running grapheme segmentation over it.
+  ctx.prefix.length
 
 /* Render a single node — checks for custom renderer first, then falls back to defaults */
 const renderNode = (node: ParsedNode, ctx: RenderContext): string => {
@@ -125,8 +135,11 @@ export const defaultHighlightCode = (
     }
     try {
       const ascii = renderMermaidASCII(code, ctx.theme.mermaidASCII || {})
-      const maxWidth = ctx.theme.width || getTerminalWidth()
-      const tooWide = ascii.split('\n').some((line) => stripAnsi(line).length > maxWidth)
+      const maxWidth =
+        (ctx.theme.width || getTerminalWidth()) - prefixWidth(ctx)
+      const tooWide = ascii
+        .split('\n')
+        .some((line) => stripAnsi(line).length > maxWidth)
       if (!tooWide) return ascii
     } catch {
       // unsupported diagram type — fall through to code block
@@ -194,45 +207,128 @@ const renderInlineCode: NodeRenderer = (node, ctx) => {
   return ctx.theme.code((node as InlineCodeNode).code)
 }
 
+/**
+ * Blank line (or whitespace/ANSI only). The escaped-character check keeps the
+ * hot path free of any stripping work for the blank separators `joinBlocks` and
+ * the nested-list padding insert.
+ */
+const isBlank = (line: string): boolean =>
+  line.trim() === '' ||
+  (line.includes('\u001b') && stripAnsi(line).trim() === '')
+
+/**
+ * Prefix the lines of a rendered block with the item marker: the marker on the
+ * first line, an equally wide blank run on the rest (hanging indent), so
+ * multi-line blocks (tables, code blocks, nested lists) stay aligned under the
+ * item text. Blank lines are left untouched to avoid trailing whitespace.
+ *
+ * Only the current marker is added — inherited indentation is applied by the
+ * enclosing levels (their hanging indent equals their marker width), which
+ * keeps `ctx.prefix` in sync with the indentation actually prepended by text.
+ */
+const indentLines = (
+  content: string,
+  marker: string,
+  markerWidth: number,
+): string => {
+  const breakAt = content.indexOf('\n')
+  // Single-line item (the common case): no splitting/joining needed
+  if (breakAt === -1) return marker + content
+
+  const hang = ' '.repeat(markerWidth)
+  const head = content.slice(0, breakAt)
+  const rest = content.slice(breakAt + 1).split('\n')
+  return [
+    marker + head,
+    ...rest.map((line) => (isBlank(line) ? '' : hang + line)),
+  ].join('\n')
+}
+
 const renderList: NodeRenderer = (node, ctx, _rc) => {
   const n = node as ListNode
-  const indent = '  '.repeat(ctx.listDepth)
-  const nestedCtx = { ...ctx, listDepth: ctx.listDepth + 1 }
+  const nested = { ...ctx, listDepth: ctx.listDepth + 1 }
 
-  let items = n.items
+  const items = n.items
     .map((item, index) => {
-      const marker = n.ordered
-        ? ctx.theme.muted(`${(n.start ?? 1) + index}. `)
-        : ctx.theme.muted('\u2022 ')
-      const content = renderNode(item, nestedCtx)
-      return indent + marker + content
+      const markerText = n.ordered ? `${(n.start ?? 1) + index}. ` : '\u2022 '
+      // The marker is a single-width bullet or ASCII digits plus '. ', so its
+      // display width is its length — no need to measure it per item.
+      const markerWidth = markerText.length
+      // Item children are laid out next to the marker, so they carry the
+      // marker width as their indentation — visible to them via `prefix`.
+      const content = renderNode(item, {
+        ...nested,
+        prefix: ctx.prefix + ' '.repeat(markerWidth),
+      })
+      return indentLines(content, ctx.theme.muted(markerText), markerWidth)
     })
     .join('\n')
-
-  while (items.endsWith('\n')) {
-    items = items.substring(0, items.length - 1)
-  }
 
   return ctx.listDepth === 0 ? items : '\n\n' + items + '\n\n'
 }
 
+/**
+ * Prepend `prefix` to every line of a block; blank lines get `blankLine` (the
+ * bare quote/admonition bar) so the container stays visually continuous.
+ *
+ * Each nesting level adds only its own prefix: the indentation of enclosing
+ * levels is applied by them (see `indentLines`), which keeps `ctx.prefix` in
+ * sync with the indentation actually prepended to the text.
+ */
+const prefixLines = (content: string, prefix: string, blankLine = ''): string =>
+  content
+    .split('\n')
+    .map((line) => (isBlank(line) ? blankLine : prefix + line))
+    .join('\n')
+
+/**
+ * Render the block children of a container, separated so that two blocks never
+ * end up glued on one line (see `joinBlocks`).
+ */
+const renderBlockChildren = (
+  children: ParsedNode[],
+  ctx: RenderContext,
+  rc: (children: ParsedNode[], ctx: RenderContext) => string,
+): string => joinBlocks(children.map((child) => rc([child], ctx)))
+
+/**
+ * Concatenate the block children of a container: every pair of blocks is
+ * separated by a blank line, and the padding the blocks add themselves is
+ * trimmed (`renderCodeBlock` and nested lists carry their own; a bare paragraph
+ * or table does not) — so container spacing matches the top-level `\n\n` join.
+ */
+const joinBlocks = (parts: string[]): string =>
+  parts
+    .filter((part) => part !== '')
+    .reduce(
+      (acc, part) =>
+        acc === ''
+          ? part
+          : acc.replace(/\n+$/, '') + '\n\n' + part.replace(/^\n+/, ''),
+      '',
+    )
+
 const renderListItem: NodeRenderer = (node, ctx, _rc) => {
   const n = node as ListItemNode
-  const parts: string[] = []
+  const parts = n.children.map((child) => renderNode(child, ctx))
 
-  for (const child of n.children) {
-    parts.push(renderNode(child, ctx))
-  }
-
-  return ctx.theme.listItem(parts.join('').replace(/\n$/, ''))
+  return ctx.theme.listItem(joinBlocks(parts).replace(/\n$/, ''))
 }
 
 const renderBlockquote: NodeRenderer = (node, ctx, rc) => {
-  const content = rc((node as BlockquoteNode).children, ctx)
-  const lines = content.split('\n').filter((l) => l)
-  return lines
-    .map((line) => ctx.theme.border('\u2502 ') + ctx.theme.blockquote(line))
-    .join('\n')
+  // Reserve the "│ " prefix for the children so fixed-width content (tables,
+  // hr, mermaid) is laid out inside the quote instead of overflowing it.
+  const inner = renderBlockChildren(
+    (node as BlockquoteNode).children,
+    { ...ctx, prefix: ctx.prefix + '  ' },
+    rc,
+  )
+
+  return prefixLines(
+    ctx.theme.blockquote(inner),
+    ctx.theme.border('\u2502 '),
+    ctx.theme.border('\u2502'),
+  )
 }
 
 const renderLink: NodeRenderer = (node, ctx) => {
@@ -245,13 +341,49 @@ const renderImage: NodeRenderer = (node, ctx) => {
   return ctx.theme.muted(`[Image: ${(node as ImageNode).alt || 'image'}]`)
 }
 
+/** GFM delimiter cell for a column alignment. */
+const ALIGN_MARKERS: Record<CellAlign, string> = {
+  left: ':---',
+  center: ':---:',
+  right: '---:',
+}
+
+/**
+ * Rebuild the markdown source of a table from its parsed cells.
+ *
+ * `TableCellNode.raw` holds the original source text (inline markup included),
+ * so the result stays valid GFM — used when the table cannot be laid out within
+ * the available width.
+ */
+const rawTableMarkdown = (n: TableNode): string => {
+  // A literal `|` inside a cell has to stay escaped to keep the row parseable
+  const cell = (c: TableCellNode): string =>
+    (c.raw ?? '').trim().replace(/(^|[^\\])\|/g, '$1\\|')
+  const row = (cells: TableCellNode[]): string =>
+    `| ${cells.map(cell).join(' | ')} |`
+  const delimiter = `| ${n.header.cells
+    .map((c) => ALIGN_MARKERS[(c.align ?? 'left') as CellAlign])
+    .join(' | ')} |`
+
+  return [
+    row(n.header.cells),
+    delimiter,
+    ...n.rows.map((r) => row(r.cells)),
+  ].join('\n')
+}
+
 const renderTable: NodeRenderer = (node, ctx, rc) => {
   const n = node as TableNode
   const numCols = n.header.cells.length
   if (numCols === 0) return ''
 
-  const termWidth = ctx.theme.width || getTerminalWidth()
-  const borderOverhead = numCols + 1 + numCols * 2
+  const termWidth = (ctx.theme.width || getTerminalWidth()) - prefixWidth(ctx)
+
+  const tableOpts = ctx.theme.tableOptions
+  const minColWidth = tableOpts.minColumnWidth
+  // Column borders + cell padding on both sides of every column
+  const borderOverhead =
+    numCols + 1 + numCols * (tableOpts.cellPadding ?? DEFAULT_CELL_PADDING) * 2
 
   const headers = n.header.cells.map((cell) =>
     ctx.theme.heading(rc(cell.children, ctx)).toString(),
@@ -265,9 +397,6 @@ const renderTable: NodeRenderer = (node, ctx, rc) => {
     (cell) => (cell as TableCellNode).align ?? 'left',
   )
 
-  const tableOpts = ctx.theme.tableOptions
-  const minColWidth = tableOpts.minColumnWidth
-
   const { widths, needsHardWrap } = calculateColumnWidths(
     headers,
     rows,
@@ -275,8 +404,37 @@ const renderTable: NodeRenderer = (node, ctx, rc) => {
     minColWidth,
   )
 
+  const table = renderTableString(
+    headers,
+    rows,
+    widths,
+    aligns,
+    ctx.theme.border,
+    needsHardWrap,
+    tableOpts,
+  )
+
+  // A box wider than the available width is worse than no box at all: Ink wraps
+  // the line and shatters the borders. The computed widths are exact — a cell is
+  // hard-wrapped when it does not fit — with one exception: a column squeezed to
+  // a single character cannot hold a wide glyph (CJK/emoji take two columns), so
+  // only then is it worth measuring the rendered lines.
+  const tableWidth = widths.reduce((sum, w) => sum + w, 0) + borderOverhead
+  const overflows =
+    tableWidth > termWidth ||
+    (widths.includes(1) &&
+      table.split('\n').some((line) => stringWidth(line) > termWidth))
+
+  if (overflows) {
+    // Styled separately from the box: `tableFallback` defaults to no styling, so
+    // the source can be marked (dim, muted, …) as a degraded rendering.
+    return ctx.theme.tableFallback('\n' + rawTableMarkdown(n))
+  }
+
   return ctx.theme.table(
-    renderTableString(headers, rows, widths, aligns, ctx.theme.border, needsHardWrap, tableOpts),
+    // Leading newline like `renderCodeBlock`: a table never shares a line with
+    // the preceding block (or with an item marker when it opens a list item).
+    '\n' + table,
   )
 }
 
@@ -291,8 +449,8 @@ const renderTableCell: NodeRenderer = (node, ctx, rc) => {
 }
 
 const renderThematicBreak: NodeRenderer = (_node, ctx) => {
-  const width = ctx.theme.width || getTerminalWidth()
-  return ctx.theme.hr('\u2500'.repeat(Math.min(width, 40)))
+  const width = (ctx.theme.width || getTerminalWidth()) - prefixWidth(ctx)
+  return ctx.theme.hr('\u2500'.repeat(Math.max(Math.min(width, 40), 1)))
 }
 
 const renderStrong: NodeRenderer = (node, ctx, rc) => {
@@ -362,9 +520,19 @@ const renderAdmonition: NodeRenderer = (node, ctx, rc) => {
   const color = kindColors[n.kind.toLowerCase()] || ctx.theme.muted
   const icon = icons[n.kind.toLowerCase()] || '\uD83D\uDCDD'
   const title = n.title || n.kind.charAt(0).toUpperCase() + n.kind.slice(1)
-  const content = rc(n.children, ctx)
+  // Same treatment as blockquotes: reserve the "│ " prefix for the children and
+  // prefix every body line, so multi-line bodies stay inside the bar.
+  const content = renderBlockChildren(
+    n.children,
+    { ...ctx, prefix: ctx.prefix + '  ' },
+    rc,
+  )
 
-  return color(`${icon} ${title}`) + '\n' + color('\u2502 ') + content
+  return (
+    color(`${icon} ${title}`) +
+    '\n' +
+    prefixLines(content, color('\u2502 '), color('\u2502'))
+  )
 }
 
 const renderMathInline: NodeRenderer = (node, ctx) => {
@@ -381,8 +549,29 @@ const renderMathBlock: NodeRenderer = (node, ctx) => {
   return ctx.theme.purple(converted)
 }
 
+/**
+ * Inert single-line inline HTML, e.g. `<code>x</code>`: the parser emits this as
+ * `html_block` (without children) inside table cells, and printing the tag
+ * verbatim would leak the markup into the table.
+ *
+ * Only attribute-less wrapper tags around plain text are unwrapped — anything
+ * that carries information (attributes, nested tags, multi-line blocks) is left
+ * as the source text.
+ */
+const INERT_INLINE_TAG = /^<([a-z][a-z0-9]*)\s*>([^<]*)<\/\1\s*>$/i
+const VOID_INLINE_TAG = /^<(br|hr)\s*\/?>$/i
+
+const unwrapInertInlineTag = (content: string): string | undefined => {
+  const trimmed = content.trim()
+  if (trimmed.includes('\n')) return undefined
+  const voidTag = VOID_INLINE_TAG.exec(trimmed)
+  if (voidTag) return voidTag[1]!.toLowerCase() === 'br' ? '\n' : ''
+  return INERT_INLINE_TAG.exec(trimmed)?.[2]
+}
+
 const renderHtmlBlock: NodeRenderer = (node, ctx) => {
-  return ctx.theme.html((node as HtmlBlockNode).content)
+  const content = (node as HtmlBlockNode).content
+  return ctx.theme.html(unwrapInertInlineTag(content) ?? content)
 }
 
 const renderHtmlInline: NodeRenderer = (node, ctx, rc) => {
@@ -390,7 +579,7 @@ const renderHtmlInline: NodeRenderer = (node, ctx, rc) => {
   if (n.children && n.children.length > 0) {
     return rc(n.children, ctx)
   }
-  return ctx.theme.html(n.content)
+  return ctx.theme.html(unwrapInertInlineTag(n.content) ?? n.content)
 }
 
 const renderDefinitionList: NodeRenderer = (node, ctx, rc) => {
@@ -413,21 +602,32 @@ const renderDefinitionItem: NodeRenderer = (node, ctx, rc) => {
 const renderFootnote: NodeRenderer = (node, ctx, rc) => {
   const n = node as FootnoteNode
   const label = ctx.theme.muted(`[^${n.id}]: `)
-  return label + rc(n.children, ctx)
+  // `[^id]: ` is single-width, so its length is its display width — body lines
+  // are aligned under the label and children reserve the same space.
+  const labelWidth = n.id.length + 5
+  const body = renderBlockChildren(
+    n.children,
+    { ...ctx, prefix: ctx.prefix + ' '.repeat(labelWidth) },
+    rc,
+  )
+
+  return indentLines(body, label, labelWidth)
 }
 
 const renderFootnoteReference: NodeRenderer = (node, ctx) => {
   return ctx.theme.info(`[^${(node as FootnoteReferenceNode).id}]`)
 }
 
-const renderFootnoteAnchor: NodeRenderer = (node, ctx) => {
-  return ctx.theme.info(`[^${(node as unknown as FootnoteAnchorNode).id}]`)
+const renderFootnoteAnchor: NodeRenderer = () => {
+  // The definition anchor (`[^1]` next to the body) is not part of the visible
+  // text — the reference in the body already carries the marker.
+  return ''
 }
 
 const renderVmrContainer: NodeRenderer = (node, ctx, rc) => {
   const n = node as VmrContainerNode
   const name = n.name ? ctx.theme.muted(`:::${n.name}`) + '\n' : ''
-  const content = rc(n.children, ctx)
+  const content = renderBlockChildren(n.children, ctx, rc)
   const closing = n.loading ? '' : '\n' + ctx.theme.muted(':::')
   return name + content + closing
 }

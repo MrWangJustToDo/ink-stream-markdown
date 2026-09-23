@@ -12,43 +12,48 @@ const EMOJI_BULLET_REGEX =
   /^(\s*)([\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B50}\u{2B55}\u{231A}-\u{231B}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}\u{25AA}-\u{25AB}\u{25B6}\u{25C0}\u{25FB}-\u{25FE}\u{2614}-\u{2615}\u{2648}-\u{2653}\u{267F}\u{2693}\u{26A1}\u{26AA}-\u{26AB}\u{26BD}-\u{26BE}\u{26C4}-\u{26C5}\u{26CE}\u{26D4}\u{26EA}\u{26F2}-\u{26F3}\u{26F5}\u{26FA}\u{26FD}\u{2702}\u{2705}\u{2708}-\u{270D}\u{270F}\u{2712}\u{2714}\u{2716}\u{271D}\u{2721}\u{2728}\u{2733}-\u{2734}\u{2744}\u{2747}\u{274C}\u{274E}\u{2753}-\u{2755}\u{2757}\u{2763}-\u{2764}\u{2795}-\u{2797}\u{27A1}\u{27B0}\u{27BF}\u{2934}-\u{2935}\u{2B05}-\u{2B07}\u{2B1B}-\u{2B1C}\u{3030}\u{303D}\u{3297}\u{3299}][\uFE0F]?)\s+(.+)$/gmu
 
 /**
- * Preprocess markdown to convert emoji-prefixed lines into proper unordered lists.
+ * Convert an emoji-bullet-only block into a list:
  *
- * Converts patterns like:
  *   ✅ No urgent updates needed
  *   ⚠️ Monitor internal packages
- *
- * Into:
+ * →
  *   - ✅ No urgent updates needed
  *   - ⚠️ Monitor internal packages
  */
-const preprocessEmojiLists = (markdown: string): string => {
-  const blocks = markdown.split(/\n\n+/)
+const convertEmojiBlock = (block: string): string => {
+  const lines = block.split('\n')
+  let emojiLineCount = 0
+  let hasNonEmojiLine = false
 
-  const processedBlocks = blocks.map((block) => {
-    const lines = block.split('\n')
-    let emojiLineCount = 0
-    let hasNonEmojiLine = false
-
-    for (const line of lines) {
-      EMOJI_BULLET_REGEX.lastIndex = 0
-      if (EMOJI_BULLET_REGEX.test(line)) {
-        emojiLineCount++
-      } else if (line.trim() !== '') {
-        hasNonEmojiLine = true
-      }
+  for (const line of lines) {
+    EMOJI_BULLET_REGEX.lastIndex = 0
+    if (EMOJI_BULLET_REGEX.test(line)) {
+      emojiLineCount++
+    } else if (line.trim() !== '') {
+      hasNonEmojiLine = true
     }
+  }
 
-    if (emojiLineCount >= 2 && !hasNonEmojiLine) {
-      EMOJI_BULLET_REGEX.lastIndex = 0
-      return block.replace(EMOJI_BULLET_REGEX, '$1- $2 $3')
-    }
+  if (emojiLineCount >= 2 && !hasNonEmojiLine) {
+    EMOJI_BULLET_REGEX.lastIndex = 0
+    return block.replace(EMOJI_BULLET_REGEX, '$1- $2 $3')
+  }
 
-    return block
-  })
-
-  return processedBlocks.join('\n\n')
+  return block
 }
+
+/**
+ * Preprocess markdown to convert emoji-prefixed lines into proper unordered lists.
+ *
+ * Blocks are split on blank lines but the separators are kept as-is
+ * (`split` with a capture group), so nothing outside a converted block is
+ * rewritten — in particular the blank lines inside code blocks stay untouched.
+ */
+const preprocessEmojiLists = (markdown: string): string =>
+  markdown
+    .split(/(\n{2,})/)
+    .map((part, index) => (index % 2 === 1 ? part : convertEmojiBlock(part)))
+    .join('')
 
 /**
  * Parse markdown with emoji-list preprocessing.

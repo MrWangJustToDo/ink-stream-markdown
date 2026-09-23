@@ -10,6 +10,12 @@ export type ChalkStyle = (text: string) => string
 export interface RenderContext {
   /** Current list nesting depth (0 = top level) */
   listDepth: number
+  /**
+   * Indentation prepended to every line rendered at the current nesting level
+   * (list indent + the blank run that aligns with the item marker).
+   * Block renderers subtract its width to compute the available width.
+   */
+  prefix: string
   /** Resolved theme colors/styles */
   theme: ResolvedTheme
 }
@@ -91,7 +97,10 @@ export interface TableBorderChars {
 
 /** Options to customize table rendering */
 export interface TableOptions {
-  /** Minimum column width (default: 5) */
+  /**
+   * Preferred minimum column width (default: 5). Columns shrink below it — down
+   * to a single character — when the table has less width available.
+   */
   minColumnWidth?: number
   /** Cell padding — spaces on each side of content (default: 1) */
   cellPadding?: number
@@ -164,6 +173,11 @@ export interface ThemeOptions {
   html?: ChalkStyle
   /** Table wrapper */
   table?: ChalkStyle
+  /**
+   * Table printed as its raw markdown source because it does not fit the
+   * available width (defaults to no styling).
+   */
+  tableFallback?: ChalkStyle
 
   /* Semantic / utility colors */
   /** Muted / secondary text (prefixes, labels, etc.) */
@@ -229,6 +243,7 @@ export const defaultTheme: ResolvedTheme = {
   hr: chalk.hex('#30363d'),
   html: chalk.hex('#8b949e'),
   table: identity,
+  tableFallback: identity,
 
   muted: chalk.hex('#8b949e'),
   border: chalk.hex('#30363d'),
