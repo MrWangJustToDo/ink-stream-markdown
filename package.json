@@ -46,6 +46,7 @@
     "example": "tsx test/run.tsx",
     "example:fold": "tsx test/run-fold.tsx",
     "example:table": "tsx test/run-nested-table.tsx",
+    "example:table-blank": "tsx test/run-table-blank.tsx",
     "example:issues": "tsx test/run-issues.tsx"
   },
   "keywords": [
