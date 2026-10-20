@@ -4,8 +4,12 @@ import {
   initHighlighter,
   clearHighlightCache,
   getHighlighter,
+  ensureLanguage,
 } from './utils/highlighter-browser'
-import type { Highlighter } from './utils/highlighter-browser'
+import type {
+  Highlighter,
+  InitHighlighterOptions,
+} from './utils/highlighter-browser'
 
 export {
   terminalLink,
@@ -13,7 +17,8 @@ export {
   initHighlighter,
   clearHighlightCache,
   getHighlighter,
+  ensureLanguage,
 }
-export type { Highlighter }
+export type { Highlighter, InitHighlighterOptions }
 
 export const getTerminalWidth = (): number => 80

@@ -370,6 +370,38 @@ const hast = highlighter.codeToHast(code, {
 `getHighlighter()` initializes the highlighter when necessary and resolves to the
 shared instance. Do not call `dispose()` on it — the markdown renderer keeps using it.
 
+### Lazy language loading
+
+To keep startup cheap, `initHighlighter()` preloads only a common set of languages
+(JavaScript, TypeScript, JSX, TSX, JSON, JSONC, Bash, Python, HTML, CSS, Markdown,
+YAML, SQL) instead of the whole Shiki bundle. Other languages are loaded on demand.
+
+```typescript
+import { initHighlighter, ensureLanguage } from 'ink-stream-markdown'
+
+// Preload your own set instead of the default one…
+await initHighlighter({ preload: ['rust', 'go', 'diff'] })
+// …or load everything up front (the previous behavior).
+// await initHighlighter({ preload: 'all' })
+
+// Load a single grammar later:
+await ensureLanguage('rust')
+```
+
+`<StreamMarkdown>` detects the languages used by its code blocks and calls
+`ensureLanguage()` automatically, re-rendering once they are ready. With the
+synchronous `renderNodesToString()` API, call `await ensureLanguage(lang)` (or
+preload the language) before rendering when a code block uses a language outside
+the default set — otherwise that block renders without highlighting.
+
+> **Note:** grammars that rely on Shiki *injections* (e.g. `ts-tags` / `lit`, whose
+> `inline.es6-*` grammars inject into `source.ts`) only take effect when they are
+> present at highlighter creation. Loaded later via `ensureLanguage()`, their
+> injections are not applied to already-compiled grammars, so `ts-tags` / `lit`
+> blocks render as plain TypeScript. To get full injection support, preload them at
+> init — `await initHighlighter({ preload: ['ts-tags', ...] })` — which also brings
+> back their tokenization cost.
+
 ## Browser Usage (ink-web)
 
 This package provides a web-compatible entry point for use with [ink-web](https://github.com/cjroth/ink-web), which renders Ink components into an xterm.js terminal in the browser.

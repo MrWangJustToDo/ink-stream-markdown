@@ -7,8 +7,9 @@ export {
   initHighlighter,
   clearHighlightCache,
   getHighlighter,
+  ensureLanguage,
 } from './platform'
-export type { Highlighter } from './platform'
+export type { Highlighter, InitHighlighterOptions } from './platform'
 export {
   renderNodesToString,
   renderNodeToString,

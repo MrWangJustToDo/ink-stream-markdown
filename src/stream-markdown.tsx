@@ -1,13 +1,17 @@
-import { type FC, useMemo } from 'react'
+import { type FC, useEffect, useMemo, useReducer } from 'react'
 import { Text } from 'ink'
 import { getMarkdown } from 'stream-markdown-parser'
 
 import { parseMarkdown } from './parse'
 import { renderNodesToString } from './render'
-import { getTerminalWidth } from './platform'
+import { ensureLanguage, getTerminalWidth } from './platform'
 import { clampToHeight, type FoldIndicator } from './utils/line-clamp'
 import type { ThemeOptions, HighlightOptions } from './theme'
-import type { GetMarkdownOptions, ParseOptions } from 'stream-markdown-parser'
+import type {
+  GetMarkdownOptions,
+  ParseOptions,
+  ParsedNode,
+} from 'stream-markdown-parser'
 
 export interface StreamMarkdownProps {
   children: string
@@ -54,6 +58,24 @@ export interface StreamMarkdownProps {
    * Defaults to a dim "↓/↑ N lines folded".
    */
   foldIndicator?: FoldIndicator
+}
+
+/** Collect the language tags of every code block, including nested ones. */
+const collectCodeLanguages = (nodes: ParsedNode[]): string[] => {
+  const languages = new Set<string>()
+  const walk = (list: ParsedNode[]) => {
+    for (const node of list) {
+      const n = node as {
+        type?: string
+        language?: string
+        children?: ParsedNode[]
+      }
+      if (n.type === 'code_block' && n.language) languages.add(n.language)
+      if (Array.isArray(n.children)) walk(n.children)
+    }
+  }
+  walk(nodes)
+  return [...languages]
 }
 
 /**
@@ -104,6 +126,24 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
     [children, instance, streamState],
   )
 
+  // Lazily load grammars for code blocks that are not preloaded, then bump a
+  // version to re-render so their highlighting appears on the next pass.
+  const [highlightVersion, bumpHighlight] = useReducer((n: number) => n + 1, 0)
+  useEffect(() => {
+    const languages = collectCodeLanguages(nodes)
+    if (languages.length === 0) return
+
+    let cancelled = false
+    Promise.all(languages.map((lang) => ensureLanguage(lang)))
+      .then((loaded) => {
+        if (!cancelled && loaded.some(Boolean)) bumpHighlight()
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [nodes])
+
   const mergedTheme = useMemo(() => {
     if (!highlight) return theme
     return {
@@ -113,6 +153,8 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
   }, [theme, highlight])
 
   const rendered = useMemo(() => {
+    // Recompute after lazily loaded grammars become available.
+    void highlightVersion
     const full = renderNodesToString(nodes, mergedTheme)
     if (!height || height <= 0) return full
     return clampToHeight(full, {
@@ -121,7 +163,7 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
       streaming: streamState.streaming,
       foldIndicator,
     })
-  }, [nodes, mergedTheme, height, streamState, foldIndicator])
+  }, [nodes, mergedTheme, height, streamState, foldIndicator, highlightVersion])
 
   return <Text>{rendered}</Text>
 }

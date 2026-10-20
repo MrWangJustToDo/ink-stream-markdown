@@ -5,19 +5,48 @@ import {
   type BundledLanguage,
   type BundledTheme,
 } from 'shiki/bundle/web'
-import type { ThemedToken } from 'shiki'
+import type { LanguageRegistration, ThemedToken } from 'shiki'
 
 import { loadCanonicalLanguages } from './canonical-languages'
+import type { LanguageLoader } from './canonical-languages'
 
 export type Highlighter = HighlighterGeneric<BundledLanguage, BundledTheme>
+
+export interface InitHighlighterOptions {
+  /**
+   * Languages to preload. Defaults to a small common set; pass `'all'` to load
+   * every bundled language (the pre-lazy behavior).
+   *
+   * Unlisted languages are loaded on demand by `ensureLanguage()`.
+   */
+  preload?: readonly string[] | 'all'
+}
+
+const COMMON_LANGUAGES = [
+  'javascript',
+  'typescript',
+  'jsx',
+  'tsx',
+  'json',
+  'jsonc',
+  'bash',
+  'python',
+  'html',
+  'css',
+  'markdown',
+  'yaml',
+  'sql',
+] as const
 
 let highlighter: Highlighter | null = null
 let initPromise: Promise<void> | null = null
 
-const ensureHighlighter = async () => {
+const ensureHighlighter = async (options?: InitHighlighterOptions) => {
   if (highlighter) return
   if (!initPromise) {
-    initPromise = loadCanonicalLanguages(bundledLanguages)
+    const preload = options?.preload ?? COMMON_LANGUAGES
+    const ids = preload === 'all' ? undefined : preload
+    initPromise = loadCanonicalLanguages(bundledLanguages, ids)
       .then((langs) =>
         createHighlighter({
           themes: ['github-dark'],
@@ -31,7 +60,8 @@ const ensureHighlighter = async () => {
   await initPromise
 }
 
-export const initHighlighter = ensureHighlighter
+export const initHighlighter = (options?: InitHighlighterOptions) =>
+  ensureHighlighter(options)
 
 /**
  * Return the shared Shiki highlighter, initializing it first if needed.
@@ -42,6 +72,49 @@ export const initHighlighter = ensureHighlighter
 export const getHighlighter = async (): Promise<Highlighter> => {
   await ensureHighlighter()
   return highlighter!
+}
+
+const languageLoads = new Map<string, Promise<void>>()
+
+/**
+ * Load a language grammar into the shared highlighter on demand.
+ *
+ * Resolves to `true` when the language became available during this call (so
+ * callers can trigger a re-render), and `false` when it was already loaded when
+ * the call started or is unknown.
+ *
+ * Note: injection grammars (e.g. `ts-tags` / `lit`) only take effect when loaded
+ * at highlighter creation; adding them here registers the grammar but does not
+ * apply its injections to already-compiled target scopes.
+ */
+export const ensureLanguage = (lang: string): Promise<boolean> => {
+  const alreadyLoaded =
+    highlighter?.getLoadedLanguages().includes(lang) ?? false
+  if (alreadyLoaded) return Promise.resolve(false)
+
+  let pending = languageLoads.get(lang)
+  if (!pending) {
+    pending = (async (): Promise<void> => {
+      await ensureHighlighter()
+      const h = highlighter!
+      if (h.getLoadedLanguages().includes(lang)) return
+
+      const loader = (
+        bundledLanguages as Record<string, LanguageLoader | undefined>
+      )[lang]
+      if (!loader) return
+
+      try {
+        const registrations: LanguageRegistration[] = (await loader()).default
+        if (registrations.length > 0) await h.loadLanguage(...registrations)
+      } catch {
+        // Unknown or broken grammar — leave it unhighlighted.
+      }
+    })()
+    languageLoads.set(lang, pending)
+  }
+
+  return pending.then(() => highlighter!.getLoadedLanguages().includes(lang))
 }
 
 const tokenCache = new Map<string, ThemedToken[][]>()

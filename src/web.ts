@@ -18,8 +18,9 @@ export {
   initHighlighter,
   clearHighlightCache,
   getHighlighter,
+  ensureLanguage,
 } from './platform-browser'
-export type { Highlighter } from './platform-browser'
+export type { Highlighter, InitHighlighterOptions } from './platform-browser'
 export {
   renderNodesToString,
   renderNodeToString,

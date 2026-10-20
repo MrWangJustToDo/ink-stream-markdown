@@ -1,6 +1,6 @@
 import type { LanguageRegistration } from 'shiki'
 
-type LanguageLoader = () => Promise<{ default: LanguageRegistration[] }>
+export type LanguageLoader = () => Promise<{ default: LanguageRegistration[] }>
 
 /**
  * Load one registration set per primary grammar, collapsing redundant aliases.
@@ -18,12 +18,21 @@ type LanguageLoader = () => Promise<{ default: LanguageRegistration[] }>
  *
  * The flattened result is deduped by scope so repeated embedded grammars (the
  * `ts-tags` loader embeds `source.ts` five times) load only once.
+ *
+ * Pass `ids` to load only a subset (lazy preloading); unknown ids are skipped.
  */
 export const loadCanonicalLanguages = async (
   bundledLanguages: Record<string, LanguageLoader>,
+  ids?: readonly string[],
 ): Promise<LanguageRegistration[]> => {
+  const entries = ids
+    ? ids
+        .filter((id) => id in bundledLanguages)
+        .map((id) => [id, bundledLanguages[id]!] as const)
+    : Object.entries(bundledLanguages)
+
   const loaded = await Promise.all(
-    Object.entries(bundledLanguages).map(async ([id, load]) => ({
+    entries.map(async ([id, load]) => ({
       id,
       registrations: (await load()).default,
     })),
