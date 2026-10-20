@@ -347,6 +347,29 @@ const parser = createParser({ enableMath: true })
 const nodes2 = parser.parse('$E = mc^2$')
 ```
 
+### Shared Shiki highlighter
+
+`initHighlighter()` and the markdown renderer use one lazy Shiki instance. Call
+`getHighlighter()` to reuse that same instance for other renderers (for example a diff
+view) instead of creating a second engine:
+
+```typescript
+import { getHighlighter } from 'ink-stream-markdown'
+
+const highlighter = await getHighlighter()
+
+// `github-dark` is loaded by default; add any theme the consumer needs.
+await highlighter.loadTheme('github-light')
+
+const hast = highlighter.codeToHast(code, {
+  lang: 'typescript',
+  themes: { dark: 'github-dark', light: 'github-light' },
+})
+```
+
+`getHighlighter()` initializes the highlighter when necessary and resolves to the
+shared instance. Do not call `dispose()` on it — the markdown renderer keeps using it.
+
 ## Browser Usage (ink-web)
 
 This package provides a web-compatible entry point for use with [ink-web](https://github.com/cjroth/ink-web), which renders Ink components into an xterm.js terminal in the browser.

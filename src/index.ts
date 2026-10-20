@@ -3,7 +3,12 @@ export type { StreamMarkdownProps } from './stream-markdown'
 export type { FoldIndicator } from './utils/line-clamp'
 
 export { parseMarkdown, createParser } from './parse'
-export { initHighlighter, clearHighlightCache } from './platform'
+export {
+  initHighlighter,
+  clearHighlightCache,
+  getHighlighter,
+} from './platform'
+export type { Highlighter } from './platform'
 export {
   renderNodesToString,
   renderNodeToString,

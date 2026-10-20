@@ -7,24 +7,43 @@ import {
 } from 'shiki/bundle-full.mjs'
 import type { ThemedToken } from 'shiki'
 
+import { loadCanonicalLanguages } from './canonical-languages'
+
+export type Highlighter = HighlighterGeneric<BundledLanguage, BundledTheme>
+
 // Lazily initialized Shiki highlighter (avoids top-level await for CJS compat)
-let highlighter: HighlighterGeneric<BundledLanguage, BundledTheme> | null = null
+let highlighter: Highlighter | null = null
 let initPromise: Promise<void> | null = null
 
 const ensureHighlighter = async () => {
   if (highlighter) return
   if (!initPromise) {
-    initPromise = createHighlighter({
-      themes: ['github-dark'],
-      langs: Object.values(bundledLanguages),
-    }).then((h) => {
-      highlighter = h
-    })
+    initPromise = loadCanonicalLanguages(bundledLanguages)
+      .then((langs) =>
+        createHighlighter({
+          themes: ['github-dark'],
+          langs,
+        }),
+      )
+      .then((h) => {
+        highlighter = h
+      })
   }
   await initPromise
 }
 
 export const initHighlighter = ensureHighlighter
+
+/**
+ * Return the shared Shiki highlighter, initializing it first if needed.
+ *
+ * The instance is a singleton: callers can add themes/languages or run
+ * `codeToHast`/`codeToTokens` against it without creating a second engine.
+ */
+export const getHighlighter = async (): Promise<Highlighter> => {
+  await ensureHighlighter()
+  return highlighter!
+}
 
 const tokenCache = new Map<string, ThemedToken[][]>()
 const MAX_CACHE = 128
