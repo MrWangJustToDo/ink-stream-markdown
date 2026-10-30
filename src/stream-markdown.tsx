@@ -1,9 +1,9 @@
-import { type FC, useEffect, useMemo, useReducer } from 'react'
+import { type FC, useEffect, useId, useMemo, useReducer } from 'react'
 import { Text } from 'ink'
 import { getMarkdown } from 'stream-markdown-parser'
 
 import { parseMarkdown } from './parse'
-import { renderNodesToString } from './render'
+import { renderNodesToStringCached, type RenderCache } from './render'
 import { ensureLanguage, getTerminalWidth } from './platform'
 import { clampToHeight, type FoldIndicator } from './utils/line-clamp'
 import type { ThemeOptions, HighlightOptions } from './theme'
@@ -79,6 +79,70 @@ const collectCodeLanguages = (nodes: ParsedNode[]): string[] => {
 }
 
 /**
+ * Deep value comparison for theme objects; non-plain values (style functions,
+ * renderer callbacks) compare by identity.
+ */
+const isSameValue = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || !a || !b) return false
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+      return false
+    }
+    return a.every((value, index) => isSameValue(value, b[index]))
+  }
+  const left = a as Record<string, unknown>
+  const right = b as Record<string, unknown>
+  const keys = Object.keys(left)
+  if (keys.length !== Object.keys(right).length) return false
+  return keys.every(
+    (key) =>
+      Object.prototype.hasOwnProperty.call(right, key) &&
+      isSameValue(left[key], right[key]),
+  )
+}
+
+/**
+ * Theme comparison (nested options included).
+ *
+ * Callers commonly build `theme` inline (`{...baseTheme, width}`), so identity
+ * changes every render even when the resolved styles do not. Comparing values
+ * lets the block cache survive those re-renders.
+ */
+const isSameTheme = (a?: ThemeOptions, b?: ThemeOptions): boolean =>
+  isSameValue(a, b)
+
+interface BlockCache {
+  theme?: ThemeOptions
+  width: number
+  version: number
+  cache: RenderCache
+}
+
+/**
+ * One block cache per mounted component, keyed by `useId`.
+ *
+ * Module state rather than a ref/memo value because the cache is read and
+ * mutated while rendering, which the react-hooks lint rules reject for values
+ * owned by a hook. Losing an entry only costs one full re-render.
+ */
+const blockCaches = new Map<string, BlockCache>()
+
+const getBlockCache = (id: string): BlockCache => {
+  let entry = blockCaches.get(id)
+  if (!entry) {
+    entry = {
+      theme: undefined,
+      width: -1,
+      version: -1,
+      cache: { keys: [], values: [] },
+    }
+    blockCaches.set(id, entry)
+  }
+  return entry
+}
+
+/**
  * Markdown component with source-side syntax highlighting.
  *
  * This component parses markdown and pre-highlights code blocks at parse time,
@@ -129,6 +193,7 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
   // Lazily load grammars for code blocks that are not preloaded, then bump a
   // version to re-render so their highlighting appears on the next pass.
   const [highlightVersion, bumpHighlight] = useReducer((n: number) => n + 1, 0)
+
   useEffect(() => {
     const languages = collectCodeLanguages(nodes)
     if (languages.length === 0) return
@@ -152,10 +217,37 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
     } as ThemeOptions
   }, [theme, highlight])
 
+  const cacheId = useId()
+
+  useEffect(
+    () => () => {
+      blockCaches.delete(cacheId)
+    },
+    [cacheId],
+  )
+
   const rendered = useMemo(() => {
     // Recompute after lazily loaded grammars become available.
     void highlightVersion
-    const full = renderNodesToString(nodes, mergedTheme)
+
+    // Anything that changes the output without changing a node invalidates the
+    // block cache: resolved styles, the effective width, or the grammars that
+    // happened to be loaded when a block was rendered.
+    const width = mergedTheme?.width ?? getTerminalWidth()
+    const entry = getBlockCache(cacheId)
+    if (
+      entry.version !== highlightVersion ||
+      entry.width !== width ||
+      !isSameTheme(entry.theme, mergedTheme)
+    ) {
+      entry.cache.keys.length = 0
+      entry.cache.values.length = 0
+      entry.theme = mergedTheme
+      entry.width = width
+      entry.version = highlightVersion
+    }
+
+    const full = renderNodesToStringCached(nodes, mergedTheme, entry.cache)
     if (!height || height <= 0) return full
     return clampToHeight(full, {
       height,
@@ -163,7 +255,15 @@ export const StreamMarkdown: FC<StreamMarkdownProps> = ({
       streaming: streamState.streaming,
       foldIndicator,
     })
-  }, [nodes, mergedTheme, height, streamState, foldIndicator, highlightVersion])
+  }, [
+    nodes,
+    mergedTheme,
+    height,
+    streamState,
+    foldIndicator,
+    highlightVersion,
+    cacheId,
+  ])
 
   return <Text>{rendered}</Text>
 }

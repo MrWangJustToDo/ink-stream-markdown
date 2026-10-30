@@ -743,3 +743,51 @@ export const renderNodesToString = (
     .map((i) => i.replace(/^\n+|\n+$/g, ''))
     .join('\n\n')
 }
+
+/**
+ * Per-block render cache for `renderNodesToStringCached`.
+ *
+ * Entry `i` holds the content key and rendered string of top-level node `i`.
+ * Streaming parsers return fresh node objects on every parse (no prefix
+ * identity reuse), so keys are content-based; an append keeps the prefix
+ * aligned and only the tail needs rendering.
+ */
+export interface RenderCache {
+  keys: string[]
+  values: string[]
+}
+
+/**
+ * Like `renderNodesToString`, but reuses rendered block strings whose node
+ * content is unchanged. Turns a streaming re-render from O(document) into
+ * O(changed tail).
+ *
+ * Callers must reset the cache when anything outside the node content changes
+ * the output (theme, width, or the set of loaded grammars).
+ */
+export const renderNodesToStringCached = (
+  nodes: ParsedNode[],
+  theme: ThemeOptions | undefined,
+  cache: RenderCache,
+): string => {
+  const resolved = theme ? resolveTheme(theme) : defaultTheme
+  const ctx = createContext(resolved)
+  const { keys, values } = cache
+
+  const rendered = nodes.map((node, index) => {
+    const key = JSON.stringify(node)
+    if (keys[index] === key) return values[index]
+    const value = renderNode(node, ctx).replace(/^\n+|\n+$/g, '')
+    keys[index] = key
+    values[index] = value
+    return value
+  })
+
+  // Drop stale tail entries when the document shrank.
+  if (keys.length > nodes.length) {
+    keys.length = nodes.length
+    values.length = nodes.length
+  }
+
+  return rendered.join('\n\n')
+}

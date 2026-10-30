@@ -15,7 +15,7 @@ const fail = (id: string, message: string) => {
   console.log(`❌ [${id}] ${message}`)
 }
 
-console.log('parser 行为检查（针对 stream-markdown-parser ^1.2.21）\n')
+console.log('parser 行为检查（针对 stream-markdown-parser ^1.2.22）\n')
 
 for (const testCase of parserBehaviorCases) {
   const nodes = parseMarkdown(testCase.markdown)
@@ -75,7 +75,7 @@ if (failures > 0) {
   )
   process.exitCode = 1
 } else {
-  console.log('\n✅ 全部通过（stream-markdown-parser 1.2.21 行为符合预期）')
+  console.log('\n✅ 全部通过（stream-markdown-parser 1.2.22 行为符合预期）')
 }
 
 // TTY 下额外渲染 Ink 组件看真实效果。

@@ -24,8 +24,8 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
       stream-markdown-parser:
-        specifier: ^1.2.21
-        version: 1.2.21
+        specifier: ^1.2.22
+        version: 1.2.22
       string-width:
         specifier: ^8.2.2
         version: 8.2.2
@@ -1397,8 +1397,8 @@ packages:
     resolution: {integrity: sha512-XlkWvfIm6RmsWtNJx+uqtKLS8eqFbxUg0ZzLXqY0caEy9l7hruX8IpiDnjsLavoBgqCCR71TqWO8MaXYheJ3RQ==}
     engines: {node: '>=10'}
 
-  stream-markdown-parser@1.2.21:
-    resolution: {integrity: sha512-KxR+1MKx+8KU60pWrEPKZKWoze9GAu/hfaawZQRqFdpFUSE2L38FvxZROkdPZpmArQwaJntzM0eiv94+ITxQxQ==}
+  stream-markdown-parser@1.2.22:
+    resolution: {integrity: sha512-dt29XGvq5Brs43br7NbmmTN8a/YInpYRSrAxTwtN+K/f/W6TnYplNZ7W4d0ZCcjwpkc1+xHEHpyDEpcm3E/BtA==}
 
   string-width@8.2.2:
     resolution: {integrity: sha512-GaPUh5gfdrYzqeVNZvUfT23vYYxXzKYidUcnMtJg/3rxRV63EFZy3k6xfKlmfeJD0176lnUV/Usr3XcwSvFzpg==}
@@ -2818,7 +2818,7 @@ snapshots:
     dependencies:
       escape-string-regexp: 2.0.0
 
-  stream-markdown-parser@1.2.21:
+  stream-markdown-parser@1.2.22:
     dependencies:
       markdown-it-container: 4.0.0
       markdown-it-footnote: 4.0.0

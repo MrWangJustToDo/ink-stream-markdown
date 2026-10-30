@@ -149,11 +149,13 @@ Fine-tune table rendering via `theme.tableOptions`:
 | `rowSeparator`   | `boolean`          | `true`  | Draw horizontal lines between body rows             |
 | `borderChars`    | `TableBorderChars` | —       | Override box-drawing characters (e.g. rounded corners) |
 
-A table that does not fit the available width is squeezed first: columns shrink
-down to `minColumnWidth` — or to the width of their own content when that is
-narrower — and cell text is wrapped. When even that does not fit, the table is
-printed as its markdown source instead of a box that shreds cells into one or two
-characters per line (or that Ink wraps and shatters):
+A table that does not fit the available width is squeezed first: every column
+shrinks in proportion to its own content width, never below the width of its
+longest unbreakable run (so a column is not squeezed into mid-word breaks while
+its neighbours keep their space), and cell text is wrapped. When even that does
+not fit, the table is printed as its markdown source instead of a box that
+shreds cells into one or two characters per line (or that Ink wraps and
+shatters):
 
 ```md
 | Date | Category | Details |

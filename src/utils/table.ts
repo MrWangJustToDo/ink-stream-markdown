@@ -55,16 +55,106 @@ function wrapCell(text: string, width: number, hard: boolean): string[] {
   return lines.length > 0 ? lines : ['']
 }
 
+// CJK / fullwidth glyphs are breakable anywhere: `wrap-ansi` splits them even
+// without `hard`, so they must not make a column as wide as the whole run.
+// Script properties cover astral planes (Ext-B+ Han, Kana Supplement, Hangul
+// Jamo Ext-B); the explicit ranges add the Common-script punctuation and
+// fullwidth forms that have no CJK script of their own.
+const CJK_CHAR =
+  /[\u2E80-\u33FF\uFE10-\uFE1F\uFE30-\uFE4F\uFF00-\uFFEF\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Bopomofo}\p{Script=Yi}]/u
+
 function longestWordWidth(text: string, minWidth: number): number {
   const plain = stripAnsi(text)
-  const words = plain.split(/\s+/).filter((w) => w.length > 0)
-  if (words.length === 0) return minWidth
-  return Math.max(...words.map((w) => stringWidth(w)), minWidth)
+  let longest = minWidth
+  for (const word of plain.split(/\s+/)) {
+    if (!word) continue
+    if (CJK_CHAR.test(word)) {
+      // Only the ASCII runs inside a mixed token are unbreakable; a single CJK
+      // glyph is at most two columns wide.
+      for (const run of word.split(CJK_CHAR)) {
+        longest = Math.max(longest, stringWidth(run))
+      }
+      longest = Math.max(longest, 2)
+    } else {
+      longest = Math.max(longest, stringWidth(word))
+    }
+  }
+  return longest
+}
+
+/**
+ * Allocate `space` across columns in proportion to their content width, never
+ * giving a column less than its longest unbreakable run.
+ *
+ * When a floor exceeds a column's proportional share, that column is fixed at
+ * its floor and the rest of the budget is shared by the remaining columns, so
+ * narrow columns do not stay pinned at their minimum while a wide one takes
+ * everything.
+ */
+const allocateProportional = (
+  weights: number[],
+  floors: number[],
+  space: number,
+): number[] => {
+  const widths = new Array<number>(weights.length).fill(0)
+  const active = new Set(weights.map((_, i) => i))
+  let budget = space
+  let weightSum = weights.reduce((s, w) => s + w, 0)
+
+  let changed = true
+  while (changed && active.size > 0) {
+    changed = false
+    for (const i of [...active]) {
+      const share = weightSum > 0 ? (budget * weights[i]!) / weightSum : 0
+      if (share < floors[i]!) {
+        widths[i] = floors[i]!
+        budget -= floors[i]!
+        weightSum -= weights[i]!
+        active.delete(i)
+        changed = true
+      }
+    }
+  }
+
+  if (active.size === 0) return widths
+
+  const ids = [...active]
+  const exact = ids.map((i) =>
+    weightSum > 0 ? (budget * weights[i]!) / weightSum : budget / ids.length,
+  )
+  let assigned = 0
+  ids.forEach((i, k) => {
+    const width = Math.min(weights[i]!, Math.floor(exact[k]!))
+    widths[i] = width
+    assigned += width
+  })
+
+  // Hand the rounding remainder to the largest fractional parts.
+  let rest = Math.max(0, budget - assigned)
+  const order = ids
+    .map((i, k) => ({ i, frac: exact[k]! - Math.floor(exact[k]!) }))
+    .sort((a, b) => b.frac - a.frac)
+  while (rest > 0) {
+    let progressed = false
+    for (const { i } of order) {
+      if (rest <= 0) break
+      if (widths[i]! < weights[i]!) {
+        widths[i]!++
+        rest--
+        progressed = true
+      }
+    }
+    if (!progressed) break
+  }
+  return widths
 }
 
 /**
  * Calculate column widths that fit within availableWidth.
- * Distributes space proportionally based on content needs.
+ *
+ * Widths track the content: when the table does not fit, every column shrinks
+ * in proportion to its own content width, with a floor at its longest
+ * unbreakable run.
  */
 export function calculateColumnWidths(
   headers: string[],
@@ -73,6 +163,9 @@ export function calculateColumnWidths(
   minColWidth = DEFAULT_MIN_COL_WIDTH,
 ): { widths: number[]; needsHardWrap: boolean } {
   const numCols = headers.length
+  // Never budget below one character per column: less than that cannot be drawn
+  // at all (the caller falls back to the markdown source instead).
+  const space = Math.max(availableWidth, numCols)
 
   const minWidths = headers.map((h, col) => {
     let w = longestWordWidth(h, minColWidth)
@@ -96,23 +189,20 @@ export function calculateColumnWidths(
 
   const totalIdeal = idealWidths.reduce((s, w) => s + w, 0)
   const totalMin = minWidths.reduce((s, w) => s + w, 0)
-  // Never budget below one character per column: less than that cannot be drawn
-  // at all (the caller falls back to the markdown source instead).
-  const space = Math.max(availableWidth, numCols)
 
   if (totalIdeal <= space) {
     return { widths: idealWidths, needsHardWrap: false }
   }
 
   if (totalMin <= space) {
-    const extra = space - totalMin
-    const overflows = idealWidths.map((ideal, i) => ideal - minWidths[i]!)
-    const totalOverflow = overflows.reduce((s, o) => s + o, 0)
-    const widths = minWidths.map((min, i) => {
-      if (totalOverflow === 0) return min
-      return min + Math.floor((overflows[i]! / totalOverflow) * extra)
-    })
-    return { widths, needsHardWrap: false }
+    const widths = allocateProportional(idealWidths, minWidths, space)
+    return {
+      widths,
+      // A column narrower than its content may hold a run with no break
+      // opportunities (CJK text has no spaces), so wrapping must be able to
+      // split it.
+      needsHardWrap: widths.some((w, i) => w < naturalWidths[i]!),
+    }
   }
 
   // Space is tighter than the natural column widths: shrink all columns

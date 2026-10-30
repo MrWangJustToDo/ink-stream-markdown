@@ -121,7 +121,7 @@ export const ensureLanguage = (lang: string): Promise<boolean> => {
 }
 
 const tokenCache = new Map<string, ThemedToken[][]>()
-const MAX_CACHE = 128
+const MAX_CACHE = 512
 
 /**
  * Synchronously highlight code and return tokens.
@@ -135,7 +135,12 @@ export const highlightCode = (code: string, lang?: string): ThemedToken[][] => {
 
   const key = `${lang}\0${code}`
   const cached = tokenCache.get(key)
-  if (cached) return cached
+  if (cached) {
+    // LRU: refresh recency so a long document keeps its hottest blocks cached.
+    tokenCache.delete(key)
+    tokenCache.set(key, cached)
+    return cached
+  }
 
   try {
     const loadedLangs = highlighter.getLoadedLanguages()

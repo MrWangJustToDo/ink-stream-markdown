@@ -127,7 +127,7 @@ export const ParserBehaviorExample = ({
 } = {}) => (
   <>
     <Text bold color="cyan">
-      {`parser 1.2.21 行为检查 · width=${width}`}
+      {`parser 1.2.22 行为检查 · width=${width}`}
     </Text>
     <StreamMarkdown theme={{ width }}>
       {combinedParserBehaviorMarkdown}
